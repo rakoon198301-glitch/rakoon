@@ -311,7 +311,8 @@
           <div class="kpi-card kpi-warn">
             <div class="kpi-title">보수 작업량</div>
             <div class="kpi-value tabular-nums" id="k_issue">0</div>
-            <div class="kpi-desc">당일 발생(임시)</div>
+            <div class="kpi-desc" id="k_issue_month">-</div>
+            <div class="kpi-desc">당일 발생</div>
           </div>
 
           <div class="kpi-card">
@@ -501,6 +502,84 @@ setText("k_tom_lcl", mLcl);
 // 🔎 (디버그용) 결과 확인
 console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
 
+/* ==========================
+   ✅ 보수 작업량(당월) : sap_item
+   - E열(5번째): 날짜
+   - R열(18번째): 값(장수)
+   - 한국시간 기준 "당월"만 합계
+========================== */
+
+const COL_REPAIR_DATE = 4;   // E (0-based)
+const COL_REPAIR_VAL  = 17;  // R (0-based)
+
+const KST_YMD_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function getKRYMD2(offsetDays = 0) {
+  return KST_YMD_FMT.format(new Date(Date.now() + offsetDays * 86400_000)); // YYYY-MM-DD
+}
+
+function getKRYM() {
+  return getKRYMD2(0).slice(0, 7); // YYYY-MM
+}
+
+function toYMD2(s) {
+  s = String(s ?? "").replace(/\r/g, "").trim();
+  if (!s) return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // 2025. 12. 1
+  let m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+
+  // 2025/12/01
+  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+
+  // 2025-12-01 00:00:00
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+  return s;
+}
+
+function toNum(v) {
+  const s = String(v ?? "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
+  if (!s) return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+const ymNow = getKRYM();                 // 예: 2026-01
+const monthNum = Number(ymNow.slice(5)); // 1~12
+
+const sapItemRows = hub.sources.sap_item?.rows || [];
+console.log("[sap_item rows] =", sapItemRows.length);
+
+let monthSum = 0;
+
+for (const r of sapItemRows) {
+  const d = toYMD2(r[COL_REPAIR_DATE]);
+  if (!d || d.includes("날짜")) continue;
+  if (d.slice(0, 7) !== ymNow) continue;
+
+  monthSum += toNum(r[COL_REPAIR_VAL]);
+}
+
+// ✅ 표시: "1월 1,000,000장"
+const fmtKR = new Intl.NumberFormat("ko-KR");
+setText("k_issue", fmtKR.format(monthSum));
+
+// (선택) kpi-desc에 월 텍스트를 넣고 싶으면, HTML에 id="k_issue_month" 추가해두면 됨
+const monthEl = document.getElementById("k_issue_month");
+if (monthEl) monthEl.textContent = `${monthNum}월 ${fmtKR.format(monthSum)}장`;
+
+console.log("[repair month result]", ymNow, monthSum);
 
 
     /* ==========================
