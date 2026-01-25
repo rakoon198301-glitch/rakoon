@@ -539,6 +539,9 @@ setText("k_tom_lcl", mLcl);
 
 // 🔎 (디버그용) 결과 확인
 console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
+console.log("sources keys:", Object.keys(hub.sources));
+console.log("repair exists?", !!hub.sources.repair, "rows:", hub.sources.repair?.rows?.length);
+
 
 /* ==========================
    ✅ 보수 작업량 : sap_item
@@ -634,62 +637,112 @@ if (listEl) {
 
 
 /* ==========================
-   ✅ 보수 작업 진행량(완료) : repair (확정판)
-   - A열: 날짜
-   - N열: 수량
-   - R열: 상태 (완료 포함이면 OK)
+   ✅ 보수 작업 진행량(완료) : repair (자동 컬럼 탐지)
+   - 날짜(A열처럼 보이지만, 실제 로드 데이터에서 날짜형 컬럼 자동 탐지)
+   - 상태("완료") 컬럼 자동 탐지
+   - 수량(N열처럼 보이지만, 완료 행에서 숫자가 큰 컬럼 자동 탐지)
    - 한국시간 기준: 현재월 + 다음달
 ========================== */
 
-const COL_REPAIR2_DATE   = 0;   // A
-const COL_REPAIR2_QTY    = 13;  // N
-const COL_REPAIR2_STATUS = 17;  // R
-
-const ymNow2  = getKRYMD2(0).slice(0,7); // 현재월 YYYY-MM
-const ymNext2 = shiftYM(ymNow2, +1);     // 다음달 YYYY-MM
+const ymNow2  = getKRYMD2(0).slice(0, 7);
+const ymNext2 = shiftYM(ymNow2, +1);
 
 const repairRows = hub.sources.repair?.rows || [];
+console.log("[repair] rows:", repairRows.length);
+if (!repairRows.length) {
+  setText("k_repair_done", "0");
+  const el = document.getElementById("k_repair_done_list");
+  if (el) el.innerHTML = `<div>${Number(ymNow2.slice(5,7))}월 0</div><div>${Number(ymNext2.slice(5,7))}월 0</div>`;
+} else {
 
-let doneNow = 0;
-let doneNext = 0;
+  // ---------- 1) 컬럼 탐지 ----------
+  // 1-1) 날짜 컬럼: YYYY-MM-DD 또는 YYYY.MM.DD 형태가 가장 많이 나오는 컬럼
+  const sampleN = Math.min(200, repairRows.length);
+  const colMax = Math.max(...repairRows.slice(0, sampleN).map(r => r.length));
 
-for (const r of repairRows) {
-  const d = toYMD2(r[COL_REPAIR2_DATE]);
-  if (!d || d.includes("날짜")) continue;
+  const isDateLike = (v) => {
+    const s = String(v ?? "").trim();
+    if (!s) return false;
+    return /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(s);
+  };
 
-  // ✅ 상태값: 공백/개행 제거 후 검사
-  const status = String(r[COL_REPAIR2_STATUS] ?? "")
-    .replace(/\r/g, "")
-    .replace(/\n/g, "")
-    .trim();
+  let dateCol = 0;
+  let bestDateScore = -1;
+  for (let c = 0; c < colMax; c++) {
+    let score = 0;
+    for (let i = 0; i < sampleN; i++) if (isDateLike(repairRows[i]?.[c])) score++;
+    if (score > bestDateScore) { bestDateScore = score; dateCol = c; }
+  }
 
-  // ✅ "완료"가 포함되면 통과 (완료/완료처리/완료 등)
-  if (!status.includes("완료")) continue;
+  // 1-2) 상태 컬럼: "완료"가 가장 많이 등장하는 컬럼
+  let statusCol = -1;
+  let bestStatusScore = -1;
+  for (let c = 0; c < colMax; c++) {
+    let score = 0;
+    for (let i = 0; i < sampleN; i++) {
+      const s = String(repairRows[i]?.[c] ?? "").replace(/\s/g, "");
+      if (s.includes("완료")) score++;
+    }
+    if (score > bestStatusScore) { bestStatusScore = score; statusCol = c; }
+  }
 
-  const qty = toNum(r[COL_REPAIR2_QTY]); // N열 합계
-  if (!qty) continue;
+  // 1-3) 수량 컬럼: 완료 행에서 숫자 합이 가장 큰 컬럼
+  let qtyCol = -1;
+  let bestQtySum = -1;
 
-  const ym = d.slice(0,7);
-  if (ym === ymNow2) doneNow += qty;
-  else if (ym === ymNext2) doneNext += qty;
+  for (let c = 0; c < colMax; c++) {
+    let sum = 0;
+    for (let i = 0; i < sampleN; i++) {
+      const row = repairRows[i];
+      const st = String(row?.[statusCol] ?? "").replace(/\s/g, "");
+      if (!st.includes("완료")) continue;
+
+      const d = toYMD2(row?.[dateCol]);
+      if (!d) continue;
+
+      // 완료 행에서만 숫자 후보를 누적
+      sum += toNum(row?.[c]);
+    }
+    if (sum > bestQtySum) { bestQtySum = sum; qtyCol = c; }
+  }
+
+  console.log("[repair] detected cols => dateCol:", dateCol, "statusCol:", statusCol, "qtyCol:", qtyCol);
+  console.log("[repair] sample A/N/R:", repairRows[0]?.[dateCol], repairRows[0]?.[qtyCol], repairRows[0]?.[statusCol]);
+
+  // ---------- 2) 집계 ----------
+  let doneNow = 0;
+  let doneNext = 0;
+
+  for (const r of repairRows) {
+    const d = toYMD2(r?.[dateCol]);
+    if (!d || d.includes("날짜")) continue;
+
+    const ym = d.slice(0, 7);
+
+    const st = String(r?.[statusCol] ?? "").replace(/\r|\n/g, "").replace(/\s/g, "");
+    if (!st.includes("완료")) continue;
+
+    const qty = toNum(r?.[qtyCol]);
+    if (!qty) continue;
+
+    if (ym === ymNow2) doneNow += qty;
+    else if (ym === ymNext2) doneNext += qty;
+  }
+
+  const fmt = new Intl.NumberFormat("ko-KR");
+  setText("k_repair_done", fmt.format(doneNow));
+
+  const listEl = document.getElementById("k_repair_done_list");
+  if (listEl) {
+    listEl.innerHTML = `
+      <div>${Number(ymNow2.slice(5,7))}월 ${fmt.format(doneNow)}</div>
+      <div>${Number(ymNext2.slice(5,7))}월 ${fmt.format(doneNext)}</div>
+    `;
+  }
+
+  console.log("[repair] result:", { ymNow2, doneNow, ymNext2, doneNext });
 }
 
-const fmtKR2 = new Intl.NumberFormat("ko-KR");
-
-// 큰 숫자 = 현재월 완료 합계
-setText("k_repair_done", fmtKR2.format(doneNow));
-
-// 월별 2줄(현재월 + 다음달)
-const doneListEl = document.getElementById("k_repair_done_list");
-if (doneListEl) {
-  doneListEl.innerHTML = `
-    <div>${Number(ymNow2.slice(5,7))}월 ${fmtKR2.format(doneNow)}</div>
-    <div>${Number(ymNext2.slice(5,7))}월 ${fmtKR2.format(doneNext)}</div>
-  `;
-}
-
-
-console.log("[repair done result]", ymNow2, doneNow, " / next", ymNext2, doneNext);
 
 
 
