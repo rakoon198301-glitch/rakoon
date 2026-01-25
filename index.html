@@ -541,6 +541,13 @@ setText("k_tom_lcl", mLcl);
 console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
 console.log("sources keys:", Object.keys(hub.sources));
 console.log("repair exists?", !!hub.sources.repair, "rows:", hub.sources.repair?.rows?.length);
+const rr = hub.sources.repair?.rows || [];
+console.log("repair row[0] len:", rr[0]?.length, "row[0]:", rr[0]);
+console.log("repair row[1] len:", rr[1]?.length, "row[1]:", rr[1]);
+
+// A/N/R 인덱스로 찍어보기(현재 가정)
+console.log("A/N/R by idx", rr[0]?.[0], rr[0]?.[13], rr[0]?.[17]);
+
 
 
 /* ==========================
