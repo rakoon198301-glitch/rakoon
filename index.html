@@ -568,7 +568,7 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// ✅ YYYY-MM 만들기 / 월 이동(지난달)
+// ✅ YYYY-MM 만들기 / 월 이동(다음달)
 function ymFromYMD(ymd) { return ymd.slice(0,7); }
 function shiftYM(ym, diff) {
   const y = Number(ym.slice(0,4));
@@ -582,13 +582,13 @@ function monthLabel(ym) {
   return `${Number(ym.slice(5,7))}월`;
 }
 
-const ymNow = ymFromYMD(getKRYMD2(0));     // 현재월 YYYY-MM
-const ymPrev = shiftYM(ymNow, -1);         // 지난달 YYYY-MM
+const ymNow  = ymFromYMD(getKRYMD2(0)); // 현재월 YYYY-MM
+const ymNext = shiftYM(ymNow, +1);      // ✅ 다음달 YYYY-MM
 
 const sapItemRows = hub.sources.sap_item?.rows || [];
 
 let sumNow = 0;
-let sumPrev = 0;
+let sumNext = 0;
 
 for (const r of sapItemRows) {
   const d = toYMD2(r[COL_REPAIR_DATE]);
@@ -598,7 +598,7 @@ for (const r of sapItemRows) {
   const val = toNum(r[COL_REPAIR_VAL]);
 
   if (ym === ymNow) sumNow += val;
-  else if (ym === ymPrev) sumPrev += val;
+  else if (ym === ymNext) sumNext += val;  // ✅ 다음달 합계
 }
 
 const fmtKR = new Intl.NumberFormat("ko-KR");
@@ -606,14 +606,15 @@ const fmtKR = new Intl.NumberFormat("ko-KR");
 // ✅ 큰 숫자 = 현재월 합계
 setText("k_issue", fmtKR.format(sumNow));
 
-// ✅ 월별 2줄 표시 (현재월 + 지난달)
+// ✅ 월별 2줄 표시 (현재월 + 다음달)
 const listEl = document.getElementById("k_issue_month_list");
 if (listEl) {
   listEl.innerHTML = `
     <div>${monthLabel(ymNow)} ${fmtKR.format(sumNow)}</div>
-    <div>${monthLabel(ymPrev)} ${fmtKR.format(sumPrev)}</div>
+    <div>${monthLabel(ymNext)} ${fmtKR.format(sumNext)}</div>
   `;
 }
+
 
 
 // (선택) kpi-desc에 월 텍스트를 넣고 싶으면, HTML에 id="k_issue_month" 추가해두면 됨
