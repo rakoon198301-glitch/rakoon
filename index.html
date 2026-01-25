@@ -70,14 +70,23 @@
 
     /* 오늘/내일 컨테이너 카드 내부 라인 */
     .subline{
-      margin-top:6px;
-      font-size:12px;
-      color:#64748b;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      font-weight:800;
-    }
+  margin-top:8px;
+  font-size:14px;            
+  color:#0f172a;
+  display:flex;
+  gap:12px;
+  font-weight:900;
+}
+.subline .chip{
+  padding:4px 10px;
+  border-radius:999px;
+  background:#f1f5f9;
+  border:1px solid #e2e8f0;
+  font-variant-numeric: tabular-nums;
+}
+.subline .chip b{
+  font-weight:900;
+}
     .subline span:last-child{ font-variant-numeric: tabular-nums; color:#0f172a; font-weight:900; }
   </style>
 </head>
@@ -281,8 +290,11 @@
           <div class="kpi-card">
             <div class="kpi-title">오늘 컨테이너</div>
             <div class="kpi-value tabular-nums" id="k_today_exp">0</div>
-            <div class="subline"><span>20pt</span><span id="k_today_20">0</span></div>
-            <div class="subline"><span>40pt</span><span id="k_today_40">0</span></div>
+            <div class="subline">
+  <span class="chip">20pt- <b id="k_today_20">0</b></span>
+  <span class="chip">40pt- <b id="k_today_40">0</b></span>
+</div>
+
             <div class="kpi-desc">수출 작업의뢰서</div>
           </div>
 
@@ -295,8 +307,11 @@
           <div class="kpi-card">
             <div class="kpi-title">내일 컨테이너</div>
             <div class="kpi-value tabular-nums" id="k_tom_exp">0</div>
-            <div class="subline"><span>20pt</span><span id="k_tom_20">0</span></div>
-            <div class="subline"><span>40pt</span><span id="k_tom_40">0</span></div>
+            <div class="subline">
+  <span class="chip">20pt- <b id="k_tom_20">0</b></span>
+  <span class="chip">40pt- <b id="k_tom_40">0</b></span>
+</div>
+
             <div class="kpi-desc">수출 작업의뢰서</div>
           </div>
 
@@ -309,11 +324,18 @@
 
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <div class="kpi-card kpi-warn">
-            <div class="kpi-title">보수 작업량</div>
-            <div class="kpi-value tabular-nums" id="k_issue">0</div>
-            <div class="kpi-desc" id="k_issue_month">-</div>
-            <div class="kpi-desc">당일 발생</div>
-          </div>
+  <div class="kpi-title">보수 작업량</div>
+
+  <!-- ✅ 큰 숫자(현재 달 합계) -->
+  <div class="kpi-value tabular-nums" id="k_issue">0</div>
+
+  <!-- ✅ 월별 2줄 표시 -->
+  <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_issue_month_list">
+    <div>1월 0</div>
+    <div>2월 0</div>
+  </div>
+</div>
+
 
           <div class="kpi-card">
             <div class="kpi-title">보수 작업 진행량</div>
@@ -503,14 +525,15 @@ setText("k_tom_lcl", mLcl);
 console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
 
 /* ==========================
-   ✅ 보수 작업량(당월) : sap_item
-   - E열(5번째): 날짜
-   - R열(18번째): 값(장수)
-   - 한국시간 기준 "당월"만 합계
+   ✅ 보수 작업량 : sap_item
+   - E열: 날짜
+   - R열: 값(장수)
+   - 한국시간 기준 월별 합계
+   - 현재월(큰숫자) + 최근 2개월 리스트 표시
 ========================== */
 
-const COL_REPAIR_DATE = 4;   // E (0-based)
-const COL_REPAIR_VAL  = 17;  // R (0-based)
+const COL_REPAIR_DATE = 4;   // E
+const COL_REPAIR_VAL  = 17;  // R
 
 const KST_YMD_FMT = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
@@ -520,34 +543,24 @@ const KST_YMD_FMT = new Intl.DateTimeFormat("en-CA", {
 });
 
 function getKRYMD2(offsetDays = 0) {
-  return KST_YMD_FMT.format(new Date(Date.now() + offsetDays * 86400_000)); // YYYY-MM-DD
+  return KST_YMD_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
 }
-
-function getKRYM() {
-  return getKRYMD2(0).slice(0, 7); // YYYY-MM
-}
-
 function toYMD2(s) {
   s = String(s ?? "").replace(/\r/g, "").trim();
   if (!s) return "";
-
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-  // 2025. 12. 1
   let m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
 
-  // 2025/12/01
   m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
 
-  // 2025-12-01 00:00:00
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[1]}-${m[2]}-${m[3]}`;
 
   return s;
 }
-
 function toNum(v) {
   const s = String(v ?? "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
   if (!s) return 0;
@@ -555,25 +568,53 @@ function toNum(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-const ymNow = getKRYM();                 // 예: 2026-01
-const monthNum = Number(ymNow.slice(5)); // 1~12
+// ✅ YYYY-MM 만들기 / 월 이동(지난달)
+function ymFromYMD(ymd) { return ymd.slice(0,7); }
+function shiftYM(ym, diff) {
+  const y = Number(ym.slice(0,4));
+  const m = Number(ym.slice(5,7));
+  const d = new Date(Date.UTC(y, m - 1 + diff, 1));
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2,"0");
+  return `${yy}-${mm}`;
+}
+function monthLabel(ym) {
+  return `${Number(ym.slice(5,7))}월`;
+}
+
+const ymNow = ymFromYMD(getKRYMD2(0));     // 현재월 YYYY-MM
+const ymPrev = shiftYM(ymNow, -1);         // 지난달 YYYY-MM
 
 const sapItemRows = hub.sources.sap_item?.rows || [];
-console.log("[sap_item rows] =", sapItemRows.length);
 
-let monthSum = 0;
+let sumNow = 0;
+let sumPrev = 0;
 
 for (const r of sapItemRows) {
   const d = toYMD2(r[COL_REPAIR_DATE]);
   if (!d || d.includes("날짜")) continue;
-  if (d.slice(0, 7) !== ymNow) continue;
 
-  monthSum += toNum(r[COL_REPAIR_VAL]);
+  const ym = ymFromYMD(d);
+  const val = toNum(r[COL_REPAIR_VAL]);
+
+  if (ym === ymNow) sumNow += val;
+  else if (ym === ymPrev) sumPrev += val;
 }
 
-// ✅ 표시: "1월 1,000,000장"
 const fmtKR = new Intl.NumberFormat("ko-KR");
-setText("k_issue", fmtKR.format(monthSum));
+
+// ✅ 큰 숫자 = 현재월 합계
+setText("k_issue", fmtKR.format(sumNow));
+
+// ✅ 월별 2줄 표시 (현재월 + 지난달)
+const listEl = document.getElementById("k_issue_month_list");
+if (listEl) {
+  listEl.innerHTML = `
+    <div>${monthLabel(ymNow)} ${fmtKR.format(sumNow)}</div>
+    <div>${monthLabel(ymPrev)} ${fmtKR.format(sumPrev)}</div>
+  `;
+}
+
 
 // (선택) kpi-desc에 월 텍스트를 넣고 싶으면, HTML에 id="k_issue_month" 추가해두면 됨
 const monthEl = document.getElementById("k_issue_month");
