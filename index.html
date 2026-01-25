@@ -69,9 +69,10 @@
     .dock-grid .v{ font-weight:900; color:rgba(255,255,255,.95); }
 
     /* 오늘/내일 컨테이너 카드 내부 라인 */
-    .subline{
+    /* 컨테이너 20/40 칩 */
+.subline{
   margin-top:8px;
-  font-size:14px;            
+  font-size:14px;
   color:#0f172a;
   display:flex;
   gap:12px;
@@ -84,9 +85,14 @@
   border:1px solid #e2e8f0;
   font-variant-numeric: tabular-nums;
 }
-.subline .chip b{
-  font-weight:900;
+.subline .chip b{ font-weight:900; }
+
+/* 보수 진행량 카드 연초록 */
+.kpi-green{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
 }
+
     .subline span:last-child{ font-variant-numeric: tabular-nums; color:#0f172a; font-weight:900; }
   </style>
 </head>
@@ -107,7 +113,7 @@
               <div class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center font-bold text-sm">NK</div>
               <div class="min-w-0">
                 <div class="text-sm font-semibold leading-5 truncate">남경 검수시스템</div>
-                <div class="text-[11px] text-white/70">WMS Dashboard</div>
+                <div class="text-[11px] text-white/70">남경 Dashboard</div>
               </div>
             </div>
 
@@ -174,7 +180,7 @@
 
             <div class="mt-3 px-3 py-3 border-t border-white/10">
               <div class="text-[11px] text-white/70 leading-5">
-                · 전광판 모니터용 구성<br/>
+                ·  Dashboard <br/>
                 · 상차 스캔 연동 예정(진행률/인보이스/국가/PT/CBM/품목/시간/담당)
               </div>
             </div>
@@ -191,7 +197,7 @@
           <div>
             <div class="text-[12px] text-slate-500 font-semibold tracking-wide">DASHBOARD</div>
             <div class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-              상차 진행 현황 · 운영 모니터
+              상차 진행 현황 · 보수작업
             </div>
           </div>
         </div>
@@ -286,75 +292,85 @@
         </section>
 
         <!-- 아래 KPI들은 기존 그대로 써도 됨(필요하면 다시 조정) -->
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <div class="kpi-card">
-            <div class="kpi-title">오늘 컨테이너</div>
-            <div class="kpi-value tabular-nums" id="k_today_exp">0</div>
-            <div class="subline">
-  <span class="chip">20pt- <b id="k_today_20">0</b></span>
-  <span class="chip">40pt- <b id="k_today_40">0</b></span>
-</div>
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+  <div class="kpi-card">
+    <div class="kpi-title">오늘 컨테이너</div>
+    <div class="kpi-value tabular-nums" id="k_today_exp">0</div>
 
-            <div class="kpi-desc">수출 작업의뢰서</div>
-          </div>
+    <div class="subline">
+      <span class="chip">20pt- <b id="k_today_20">0</b></span>
+      <span class="chip">40pt- <b id="k_today_40">0</b></span>
+    </div>
 
-          <div class="kpi-card">
-            <div class="kpi-title">오늘 LCL</div>
-            <div class="kpi-value tabular-nums" id="k_today_lcl">0</div>
-            <div class="kpi-desc">배송 의뢰서</div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-title">내일 컨테이너</div>
-            <div class="kpi-value tabular-nums" id="k_tom_exp">0</div>
-            <div class="subline">
-  <span class="chip">20pt- <b id="k_tom_20">0</b></span>
-  <span class="chip">40pt- <b id="k_tom_40">0</b></span>
-</div>
-
-            <div class="kpi-desc">수출 작업의뢰서</div>
-          </div>
-
-          <div class="kpi-card">
-            <div class="kpi-title">내일 LCL</div>
-            <div class="kpi-value tabular-nums" id="k_tom_lcl">0</div>
-            <div class="kpi-desc">배송 의뢰서</div>
-          </div>
-        </section>
-
-        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <div class="kpi-card kpi-warn">
-  <div class="kpi-title">보수 작업량</div>
-
-  <!-- ✅ 큰 숫자(현재 달 합계) -->
-  <div class="kpi-value tabular-nums" id="k_issue">0</div>
-
-  <!-- ✅ 월별 2줄 표시 -->
-  <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_issue_month_list">
-    <div>1월 0</div>
-    <div>2월 0</div>
+    <div class="kpi-desc">수출 작업의뢰서</div>
   </div>
-</div>
 
+  <div class="kpi-card">
+    <div class="kpi-title">오늘 LCL</div>
+    <div class="kpi-value tabular-nums" id="k_today_lcl">0</div>
+    <div class="kpi-desc">배송 의뢰서</div>
+  </div>
 
-          <div class="kpi-card">
-            <div class="kpi-title">보수 작업 진행량</div>
-            <div class="kpi-value tabular-nums" id="k_repair_progress">-</div>
-            <div class="kpi-desc">진행 / 전체</div>
-          </div>
+  <div class="kpi-card">
+    <div class="kpi-title">내일 컨테이너</div>
+    <div class="kpi-value tabular-nums" id="k_tom_exp">0</div>
 
-          <div class="kpi-card">
-            <div class="kpi-title">재고</div>
-            <div class="kpi-value tabular-nums" id="k_inventory">-</div>
-            <div class="kpi-desc">WMS / SAP</div>
-          </div>
+    <div class="subline">
+      <span class="chip">20pt- <b id="k_tom_20">0</b></span>
+      <span class="chip">40pt- <b id="k_tom_40">0</b></span>
+    </div>
 
-          <div class="kpi-card">
-            <div class="kpi-title">유통기한</div>
-            <div class="kpi-value tabular-nums" id="k_expiry">-</div>
-            <div class="kpi-desc">주의 / 위험</div>
-          </div>
-        </section>
+    <div class="kpi-desc">수출 작업의뢰서</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-title">내일 LCL</div>
+    <div class="kpi-value tabular-nums" id="k_tom_lcl">0</div>
+    <div class="kpi-desc">배송 의뢰서</div>
+  </div>
+</section>
+
+<!-- ✅ 2번째 줄 KPI (정리본) -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+
+  <!-- ✅ 보수 작업량 (sap_item) : 연한 빨강 -->
+  <div class="kpi-card kpi-warn">
+    <div class="kpi-title">보수 작업량</div>
+    <div class="kpi-value tabular-nums" id="k_issue">0</div>
+
+    <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_issue_month_list">
+      <div>1월 0</div>
+      <div>2월 0</div>
+    </div>
+  </div>
+
+  <!-- ✅ 보수 작업 진행량(완료) (repair) : 연한 초록 -->
+  <div class="kpi-card kpi-green">
+    <div class="kpi-title">보수 작업 진행량</div>
+    <div class="kpi-value tabular-nums" id="k_repair_done">0</div>
+
+    <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_repair_done_list">
+      <div>1월 0</div>
+      <div>2월 0</div>
+    </div>
+  </div>
+
+  <!-- 재고 -->
+  <div class="kpi-card">
+    <div class="kpi-title">재고</div>
+    <div class="kpi-value tabular-nums" id="k_inventory">-</div>
+    <div class="kpi-desc">WMS / SAP</div>
+  </div>
+
+  <!-- 유통기한 -->
+  <div class="kpi-card">
+    <div class="kpi-title">유통기한</div>
+    <div class="kpi-value tabular-nums" id="k_expiry">-</div>
+    <div class="kpi-desc">주의 / 위험</div>
+  </div>
+
+</section>
+
 
       </main>
     </div>
@@ -617,11 +633,63 @@ if (listEl) {
 
 
 
-// (선택) kpi-desc에 월 텍스트를 넣고 싶으면, HTML에 id="k_issue_month" 추가해두면 됨
-const monthEl = document.getElementById("k_issue_month");
-if (monthEl) monthEl.textContent = `${monthNum}월 ${fmtKR.format(monthSum)}장`;
+/* ==========================
+   ✅ 보수 작업 진행량(완료) : repair
+   - A열: 날짜
+   - R열: 상태값 (완료)
+   - N열: 수량(합계 대상)
+   - 한국시간 기준: 현재월 + 다음달
+========================== */
 
-console.log("[repair month result]", ymNow, monthSum);
+const COL_REPAIR2_DATE   = 0;   // A
+const COL_REPAIR2_QTY    = 13;  // N
+const COL_REPAIR2_STATUS = 17;  // R
+
+// ✅ 공용 함수가 이미 있으면(너 스크립트에 있는 toYMD2, toNum, getKRYMD2, ymFromYMD, shiftYM, monthLabel, fmtKR 등)
+// 중복 방지를 위해 여기서는 "없는 경우"만 사용한다고 가정.
+// 너 파일엔 이미 toYMD2/toNum/getKRYMD2/shiftYM/monthLabel 등이 있으니 그대로 활용 가능.
+
+const ymNow2  = getKRYMD2(0).slice(0,7);     // 현재월 YYYY-MM
+const ymNext2 = shiftYM(ymNow2, +1);         // 다음달 YYYY-MM
+
+const repairRows = hub.sources.repair?.rows || [];
+console.log("[repair rows] =", repairRows.length);
+
+let doneNow = 0;
+let doneNext = 0;
+
+for (const r of repairRows) {
+  const d = toYMD2(r[COL_REPAIR2_DATE]);       // A
+  if (!d || d.includes("날짜")) continue;
+
+  const ym = d.slice(0,7);
+
+  const status = String(r[COL_REPAIR2_STATUS] ?? "").trim(); // R
+  if (status !== "완료") continue;
+
+  const qty = toNum(r[COL_REPAIR2_QTY]);       // N
+  if (ym === ymNow2) doneNow += qty;
+  else if (ym === ymNext2) doneNext += qty;
+}
+
+const fmtKR2 = new Intl.NumberFormat("ko-KR");
+
+// ✅ 큰 숫자(현재월)
+setText("k_repair_done", fmtKR2.format(doneNow));
+
+// ✅ 월별 2줄(현재월 + 다음달)
+const doneListEl = document.getElementById("k_repair_done_list");
+if (doneListEl) {
+  doneListEl.innerHTML = `
+    <div>${Number(ymNow2.slice(5,7))}월 ${fmtKR2.format(doneNow)}</div>
+    <div>${Number(ymNext2.slice(5,7))}월 ${fmtKR2.format(doneNext)}</div>
+  `;
+}
+
+console.log("[repair done result]", ymNow2, doneNow, " / next", ymNext2, doneNext);
+
+
+
 
 
     /* ==========================
