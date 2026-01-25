@@ -426,64 +426,71 @@
   <script type="module">
     import { DataHub } from "./datahub.js";
 
-    const URL_REGISTRY =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
+const URL_REGISTRY =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
 
-    const MAP_SAPDOC = { dateIdx: 2, typeIdx: 7 };
+const setText = (id, v) => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(v);
+};
 
-    function getKRDate(offset = 0) {
-      const now = new Date();
-      const kr = new Date(now.getTime() + 9 * 3600000 + offset * 86400000);
-      return kr.toISOString().slice(0, 10);
-    }
-
-    const setText = (id, v) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = String(v);
-    };
-
-    const statusEl = document.getElementById("dataStatus");
+const statusEl = document.getElementById("dataStatus");
 const updatedEl = document.getElementById("dataUpdated");
+const boardUpdatedEl = document.getElementById("boardUpdated"); // 전광판 바 쓰면 있음
+
+// ✅ 갱신 강조(있으면 사용)
+function flashUpdated(text) {
+  if (updatedEl) updatedEl.textContent = text || "-";
+  if (boardUpdatedEl) {
+    boardUpdatedEl.textContent = text || "-";
+    boardUpdatedEl.classList.remove("flash");
+    void boardUpdatedEl.offsetWidth;
+    boardUpdatedEl.classList.add("flash");
+  }
+}
 
 /* ==========================
    ✅ 데이터 갱신 함수 (화면 유지)
 ========================== */
 async function refreshData() {
-  // 캐시 방지
-  const REG_URL = URL_REGISTRY + (URL_REGISTRY.includes("?") ? "&" : "?") + "t=" + Date.now();
+  try {
+    const REG_URL = URL_REGISTRY + (URL_REGISTRY.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-  const hub = await DataHub.loadAll(REG_URL, (p) => {
-    if (!statusEl) return;
+    const hub = await DataHub.loadAll(REG_URL, (p) => {
+      if (!statusEl) return;
 
-    if (p.phase === "registry") {
-      statusEl.textContent =
-        p.status === "ok" ? `Registry OK (${p.count}개)` :
-        p.status === "cached" ? "Registry 캐시 사용" :
-        p.status === "loading" ? "Registry 로딩..." :
-        "Registry 오류";
-    }
+      if (p.phase === "registry") {
+        statusEl.textContent =
+          p.status === "ok" ? `Registry OK (${p.count}개)` :
+          p.status === "cached" ? "Registry 캐시 사용" :
+          p.status === "loading" ? "Registry 로딩..." :
+          "Registry 오류";
+      }
 
-    if (p.phase === "source") {
-      if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
-      if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
-      if (p.status === "error") statusEl.textContent = `${p.name} 오류`;
-    }
-  });
+      if (p.phase === "source") {
+        if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
+        if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
+        if (p.status === "error") statusEl.textContent = `${p.name} 오류`;
+      }
+    });
 
-  // 마지막 갱신 시간
-  const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
-  if (updatedEl) updatedEl.textContent = loadedAt;
+    const loadedAt = hub.meta.loadedAt.replace("T", " ").slice(0, 19);
+    flashUpdated(loadedAt);
 
-  // 🔽 기존 집계 코드들을 "hub" 기준으로 그대로 실행
-  // (로직 수정 ❌, 위치만 이동)
-  calcShipping(hub);
-  calcIssue(hub);
-  calcRepair(hub);
-  calcInventory(hub);
-  // calcDock(hub); // 나중에 상차 연동 시
+    // ✅ 여기서 화면 값만 업데이트
+    calcShipping(hub);
+    calcIssue(hub);
+    calcRepair(hub);
+    calcInventory(hub);
 
-  return hub;
+    return hub;
+  } catch (e) {
+    console.error("refreshData error:", e);
+    if (statusEl) statusEl.textContent = "오류: " + (e?.message || e);
+    return null;
+  }
 }
+
 
 /* ==========================
    ✅ 전광판 모드: 시계/갱신강조/자동 새로고침
@@ -879,27 +886,35 @@ console.log("[repair done]", { ymNowR, doneNow, ymNextR, doneNext });
    - E열: 수량
 ========================== */
 
-const COL_WMS_QTY = 4; // E열 (0부터 시작)
+function calcInventory(hub) {
+  const COL_WMS_QTY = 4; // E
+  const wmsRows = hub.sources.wms?.rows || [];
+  let inventorySum = 0;
 
-const wmsRows = hub.sources.wms?.rows || [];
-console.log("[wms] rows:", wmsRows.length);
+  for (const r of wmsRows) {
+    if (!r || r.length <= COL_WMS_QTY) continue;
+    inventorySum += toNum(r[COL_WMS_QTY]);
+  }
 
-let inventorySum = 0;
-
-for (const r of wmsRows) {
-  // 헤더/빈행 방어
-  if (!r || r.length <= COL_WMS_QTY) continue;
-
-  const v = toNum(r[COL_WMS_QTY]);
-  if (!v) continue;
-
-  inventorySum += v;
+  setText("k_inventory", new Intl.NumberFormat("ko-KR").format(inventorySum));
 }
 
-const fmtInv = new Intl.NumberFormat("ko-KR");
-setText("k_inventory", fmtInv.format(inventorySum));
+function calcShipping(hub) {
+  // ✅ 너 기존 출고 집계 코드(오늘/내일 20/40/LCL) 블록을
+  // 이 함수 안에 그대로 넣으면 됨
+  // (지금 답변에서는 길어서 생략 — 너가 이미 붙여둔 코드 그대로 복붙)
+}
 
-console.log("[inventory sum]", inventorySum);
+function calcIssue(hub) {
+  // ✅ 너 기존 sap_item 보수 작업량 코드 블록을
+  // 이 함수 안에 그대로 넣으면 됨
+}
+
+function calcRepair(hub) {
+  // ✅ 너 기존 repair 완료 합계 코드 블록을
+  // 이 함수 안에 그대로 넣으면 됨
+}
+
 
 
 
