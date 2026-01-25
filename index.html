@@ -729,6 +729,32 @@ if (repairListEl) {
 console.log("[repair done]", { ymNowR, doneNow, ymNextR, doneNext });
 
 
+/* ==========================
+   ✅ 재고 합계 : wms
+   - E열: 수량
+========================== */
+
+const COL_WMS_QTY = 4; // E열 (0부터 시작)
+
+const wmsRows = hub.sources.wms?.rows || [];
+console.log("[wms] rows:", wmsRows.length);
+
+let inventorySum = 0;
+
+for (const r of wmsRows) {
+  // 헤더/빈행 방어
+  if (!r || r.length <= COL_WMS_QTY) continue;
+
+  const v = toNum(r[COL_WMS_QTY]);
+  if (!v) continue;
+
+  inventorySum += v;
+}
+
+const fmtInv = new Intl.NumberFormat("ko-KR");
+setText("k_inventory", fmtInv.format(inventorySum));
+
+console.log("[inventory sum]", inventorySum);
 
 
 
