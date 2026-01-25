@@ -717,18 +717,16 @@ const fmt = new Intl.NumberFormat("ko-KR");
 setText("k_repair_done", fmt.format(doneNow));
 
 // 월별 2줄 = 현재월 / 다음달
-const listEl = document.getElementById("k_repair_done_list");
-if (listEl) {
-  listEl.innerHTML = `
+const repairListEl = document.getElementById("k_repair_done_list");
+if (repairListEl) {
+  repairListEl.innerHTML = `
     <div>${Number(ymNowR.slice(5,7))}월 ${fmt.format(doneNow)}</div>
     <div>${Number(ymNextR.slice(5,7))}월 ${fmt.format(doneNext)}</div>
   `;
 }
 
+
 console.log("[repair done]", { ymNowR, doneNow, ymNextR, doneNext });
-
-
-
 
 
 
