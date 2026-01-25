@@ -673,52 +673,60 @@ if (listEl) {
    ✅ 보수 작업 진행량(완료) : repair
    - A열: 날짜
    - R열: 상태(완료)
-   - N열: 합계
-   - 현재월 + 다음달 표시 (현재가 1월이면 1월/2월)
+   - N열: 수량 합계
+   - 한국시간 기준: 현재월 + 다음달
 ========================== */
 
-const COL_REPAIR2_DATE   = 0;   // A
-const COL_REPAIR2_QTY    = 13;  // N
-const COL_REPAIR2_STATUS = 17;  // R
+const COL_REP_DATE   = 0;   // A
+const COL_REP_QTY    = 13;  // N
+const COL_REP_STATUS = 17;  // R
 
-const ymNow2  = getKRYMD2(0).slice(0,7); // 예: 2026-01
-const ymNext2 = shiftYM(ymNow2, +1);     // 예: 2026-02
+const ymNowR  = getKRYMD2(0).slice(0, 7); // 예: 2026-01
+const ymNextR = shiftYM(ymNowR, +1);      // 예: 2026-02
 
-const repairRows = hub.sources.repair?.rows || [];
+const repRows = hub.sources.repair?.rows || [];
+console.log("[repair] rows:", repRows.length);
 
 let doneNow = 0;
 let doneNext = 0;
 
-for (const r of repairRows) {
-  const d = toYMD2(r?.[COL_REPAIR2_DATE]); // ✅ 이제 1월 3일도 인식됨
+for (const r of repRows) {
+  const d = toYMD2(r?.[COL_REP_DATE]); // A
   if (!d || d.includes("날짜")) continue;
 
-  const st = String(r?.[COL_REPAIR2_STATUS] ?? "")
+  const ym = d.slice(0, 7);
+  if (ym !== ymNowR && ym !== ymNextR) continue;
+
+  const st = String(r?.[COL_REP_STATUS] ?? "")
     .replace(/\r|\n/g, "")
     .replace(/\s/g, ""); // 공백 제거
 
+  // ✅ 완료 조건 (완료/완료처리 등 포함)
   if (!st.includes("완료")) continue;
 
-  const ym = d.slice(0,7);
-  const qty = toNum(r?.[COL_REPAIR2_QTY]); // N열
+  const qty = toNum(r?.[COL_REP_QTY]); // N
+  if (!qty) continue;
 
-  if (ym === ymNow2) doneNow += qty;
-  else if (ym === ymNext2) doneNext += qty;
+  if (ym === ymNowR) doneNow += qty;
+  else doneNext += qty;
 }
 
-const fmtKR2 = new Intl.NumberFormat("ko-KR");
-setText("k_repair_done", fmtKR2.format(doneNow));
+const fmt = new Intl.NumberFormat("ko-KR");
 
-const doneListEl = document.getElementById("k_repair_done_list");
-if (doneListEl) {
-  doneListEl.innerHTML = `
-    <div>${Number(ymNow2.slice(5,7))}월 ${fmtKR2.format(doneNow)}</div>
-    <div>${Number(ymNext2.slice(5,7))}월 ${fmtKR2.format(doneNext)}</div>
+// 큰 숫자 = 현재월 완료 합계
+setText("k_repair_done", fmt.format(doneNow));
+
+// 월별 2줄 = 현재월 / 다음달
+const listEl = document.getElementById("k_repair_done_list");
+if (listEl) {
+  listEl.innerHTML = `
+    <div>${Number(ymNowR.slice(5,7))}월 ${fmt.format(doneNow)}</div>
+    <div>${Number(ymNextR.slice(5,7))}월 ${fmt.format(doneNext)}</div>
   `;
 }
 
+console.log("[repair done]", { ymNowR, doneNow, ymNextR, doneNext });
 
-  console.log("[repair] result:", { ymNow2, doneNow, ymNext2, doneNext });
 
 
 
