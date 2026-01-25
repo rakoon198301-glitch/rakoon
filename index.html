@@ -423,8 +423,8 @@
     </div>
   </div>
 
-  <script type="module">
-    import { DataHub } from "./datahub.js";
+ <script type="module">
+import { DataHub } from "./datahub.js";
 
 const URL_REGISTRY =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
@@ -436,9 +436,8 @@ const setText = (id, v) => {
 
 const statusEl = document.getElementById("dataStatus");
 const updatedEl = document.getElementById("dataUpdated");
-const boardUpdatedEl = document.getElementById("boardUpdated"); // 전광판 바 쓰면 있음
+const boardUpdatedEl = document.getElementById("boardUpdated");
 
-// ✅ 갱신 강조(있으면 사용)
 function flashUpdated(text) {
   if (updatedEl) updatedEl.textContent = text || "-";
   if (boardUpdatedEl) {
@@ -450,7 +449,252 @@ function flashUpdated(text) {
 }
 
 /* ==========================
-   ✅ 데이터 갱신 함수 (화면 유지)
+   ✅ 공통 유틸
+========================== */
+function norm(v) {
+  return String(v ?? "").replace(/\r/g, "").trim();
+}
+function toNum(v) {
+  const s = String(v ?? "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
+  if (!s) return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// KST YYYY-MM-DD
+const KST_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+function getKRYMD(offsetDays = 0) {
+  return KST_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
+}
+
+// 날짜 문자열 → YYYY-MM-DD
+function toYMD(s) {
+  s = norm(s);
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+
+  m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+
+  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (m) {
+    const year = getKRYMD(0).slice(0,4);
+    return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  }
+  return s;
+}
+
+// YYYY-MM
+function ymFromYMD(ymd){ return ymd.slice(0,7); }
+function shiftYM(ym, diff){
+  const y = Number(ym.slice(0,4));
+  const m = Number(ym.slice(5,7));
+  const d = new Date(Date.UTC(y, m - 1 + diff, 1));
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth()+1).padStart(2,"0");
+  return `${yy}-${mm}`;
+}
+function monthLabel(ym){ return `${Number(ym.slice(5,7))}월`; }
+
+const fmtKR = new Intl.NumberFormat("ko-KR");
+
+/* ==========================
+   ✅ 1) 출고 집계 (sap_doc)
+   - D(3): 출고일
+   - H(7): 분류
+   - I(8): 컨테이너타입(20/40)
+========================== */
+function calcShipping(hub){
+  const COL_SHIP_DATE = 3;
+  const COL_CLASSIFY  = 7;
+  const COL_TYPE      = 8;
+
+  const today = getKRYMD(0);
+  const tomorrow = getKRYMD(1);
+
+  const rows = hub.sources.sap_doc?.rows || [];
+
+  let t20=0,t40=0,tLcl=0;
+  let m20=0,m40=0,mLcl=0;
+
+  function getPt(v){
+    const s = norm(v);
+    const head2 = s.replace(/[^0-9]/g,"").slice(0,2);
+    if (head2==="20") return "20";
+    if (head2==="40") return "40";
+    return "";
+  }
+
+  for(const r of rows){
+    const shipDate = toYMD(r?.[COL_SHIP_DATE]);
+    const cls = norm(r?.[COL_CLASSIFY]);
+    if(!shipDate || shipDate.includes("출고")) continue;
+
+    if(shipDate===today){
+      if(cls==="수출 작업의뢰서"){
+        const pt = getPt(r?.[COL_TYPE]);
+        if(pt==="20") t20++;
+        else if(pt==="40") t40++;
+      } else if(cls==="배송 의뢰서"){
+        tLcl++;
+      }
+    }
+    if(shipDate===tomorrow){
+      if(cls==="수출 작업의뢰서"){
+        const pt = getPt(r?.[COL_TYPE]);
+        if(pt==="20") m20++;
+        else if(pt==="40") m40++;
+      } else if(cls==="배송 의뢰서"){
+        mLcl++;
+      }
+    }
+  }
+
+  setText("k_today_20", t20);
+  setText("k_today_40", t40);
+  setText("k_today_exp", t20+t40);
+  setText("k_today_lcl", tLcl);
+
+  setText("k_tom_20", m20);
+  setText("k_tom_40", m40);
+  setText("k_tom_exp", m20+m40);
+  setText("k_tom_lcl", mLcl);
+}
+
+/* ==========================
+   ✅ 2) 보수 작업량 (sap_item)
+   - E(4): 날짜
+   - R(17): 장수
+   - 현재월 + 다음달
+========================== */
+function calcIssue(hub){
+  const COL_DATE = 4;   // E
+  const COL_VAL  = 17;  // R
+
+  const ymNow  = ymFromYMD(getKRYMD(0));
+  const ymNext = shiftYM(ymNow, +1);
+
+  const rows = hub.sources.sap_item?.rows || [];
+
+  let sumNow=0, sumNext=0;
+
+  for(const r of rows){
+    const d = toYMD(r?.[COL_DATE]);
+    if(!d || d.includes("날짜")) continue;
+    const ym = ymFromYMD(d);
+    const val = toNum(r?.[COL_VAL]);
+    if(ym===ymNow) sumNow += val;
+    else if(ym===ymNext) sumNext += val;
+  }
+
+  setText("k_issue", fmtKR.format(sumNow));
+
+  const listEl = document.getElementById("k_issue_month_list");
+  if(listEl){
+    listEl.innerHTML = `
+      <div>${monthLabel(ymNow)} ${fmtKR.format(sumNow)}</div>
+      <div>${monthLabel(ymNext)} ${fmtKR.format(sumNext)}</div>
+    `;
+  }
+}
+
+/* ==========================
+   ✅ 3) 보수 작업 진행량(완료) (repair)
+   - A(0): 날짜
+   - R(17): 상태(완료 포함)
+   - N(13): 수량 합
+   - 현재월 + 다음달
+========================== */
+function calcRepair(hub){
+  const COL_DATE   = 0;   // A
+  const COL_QTY    = 13;  // N
+  const COL_STATUS = 17;  // R
+
+  const ymNow  = getKRYMD(0).slice(0,7);
+  const ymNext = shiftYM(ymNow, +1);
+
+  const rows = hub.sources.repair?.rows || [];
+
+  let doneNow=0, doneNext=0;
+
+  for(const r of rows){
+    const d = toYMD(r?.[COL_DATE]);
+    if(!d || d.includes("날짜")) continue;
+    const ym = d.slice(0,7);
+    if(ym!==ymNow && ym!==ymNext) continue;
+
+    const st = String(r?.[COL_STATUS] ?? "").replace(/\r|\n/g,"").replace(/\s/g,"");
+    if(!st.includes("완료")) continue;
+
+    const qty = toNum(r?.[COL_QTY]);
+    if(!qty) continue;
+
+    if(ym===ymNow) doneNow += qty;
+    else doneNext += qty;
+  }
+
+  setText("k_repair_done", fmtKR.format(doneNow));
+
+  const listEl = document.getElementById("k_repair_done_list");
+  if(listEl){
+    listEl.innerHTML = `
+      <div>${Number(ymNow.slice(5,7))}월 ${fmtKR.format(doneNow)}</div>
+      <div>${Number(ymNext.slice(5,7))}월 ${fmtKR.format(doneNext)}</div>
+    `;
+  }
+}
+
+/* ==========================
+   ✅ 4) 재고 합계 (wms)
+   - E(4): 수량 합
+========================== */
+function calcInventory(hub){
+  const COL_QTY = 4; // E
+  const rows = hub.sources.wms?.rows || [];
+  let sum = 0;
+
+  for(const r of rows){
+    if(!r || r.length <= COL_QTY) continue;
+    sum += toNum(r[COL_QTY]);
+  }
+
+  setText("k_inventory", fmtKR.format(sum));
+}
+
+/* ==========================
+   ✅ 상차장 카드(임시)
+========================== */
+function setDock(key, info) {
+  const done = Number(info.done || 0);
+  const total = Number(info.total || 0);
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+  setText(`dock_${key}_done`, done);
+  setText(`dock_${key}_total`, total);
+  setText(`dock_${key}_pct`, pct);
+
+  setText(`dock_${key}_owner`, info.owner || "-");
+  setText(`dock_${key}_inv`, info.inv || "-");
+  setText(`dock_${key}_country`, info.country || "-");
+  setText(`dock_${key}_pt`, info.pt || "-");
+  setText(`dock_${key}_cbm`, info.cbm || "-");
+  setText(`dock_${key}_item`, info.item || "-");
+  setText(`dock_${key}_time`, info.time || "-");
+}
+
+/* ==========================
+   ✅ 데이터 갱신(화면 유지)
 ========================== */
 async function refreshData() {
   try {
@@ -458,7 +702,6 @@ async function refreshData() {
 
     const hub = await DataHub.loadAll(REG_URL, (p) => {
       if (!statusEl) return;
-
       if (p.phase === "registry") {
         statusEl.textContent =
           p.status === "ok" ? `Registry OK (${p.count}개)` :
@@ -466,7 +709,6 @@ async function refreshData() {
           p.status === "loading" ? "Registry 로딩..." :
           "Registry 오류";
       }
-
       if (p.phase === "source") {
         if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
         if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
@@ -474,14 +716,20 @@ async function refreshData() {
       }
     });
 
-    const loadedAt = hub.meta.loadedAt.replace("T", " ").slice(0, 19);
+    const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
     flashUpdated(loadedAt);
 
-    // ✅ 여기서 화면 값만 업데이트
+    // ✅ 값만 업데이트
     calcShipping(hub);
     calcIssue(hub);
     calcRepair(hub);
     calcInventory(hub);
+
+    // 상차카드(임시)
+    setDock("a",  { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
+    setDock("m",  { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
+    setDock("b1", { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
+    setDock("b2", { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
 
     return hub;
   } catch (e) {
@@ -491,17 +739,11 @@ async function refreshData() {
   }
 }
 
-
 /* ==========================
-   ✅ 전광판 모드: 시계/갱신강조/자동 새로고침
-   - 30초마다 reload (전광판용)
+   ✅ 전광판: 시계 + 폴링(리로드X)
 ========================== */
-
 const REFRESH_SEC = 30;
-
-// 상단 전광판 요소
 const clockEl = document.getElementById("boardClock");
-const updEl = document.getElementById("boardUpdated");
 const cdEl = document.getElementById("boardCountdown");
 const everyEl = document.getElementById("boardEvery");
 const fsBtn = document.getElementById("btnFullscreen");
@@ -509,443 +751,47 @@ const pulseEl = document.getElementById("boardPulse");
 
 if (everyEl) everyEl.textContent = String(REFRESH_SEC);
 
-// 1) 시계(한국시간)
 const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
   hour: "2-digit",
   minute: "2-digit",
   second: "2-digit",
 });
-function tickClock() {
-  if (!clockEl) return;
-  clockEl.textContent = KST_TIME_FMT.format(new Date());
+function tickClock(){
+  if(clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date());
 }
 tickClock();
 setInterval(tickClock, 1000);
 
-// 2) 마지막 갱신 강조 표시 (dataUpdated -> boardUpdated)
-function setUpdatedStrong(text) {
-  if (!updEl) return;
-  updEl.textContent = text || "-";
-  updEl.classList.remove("flash");
-  // 강제 reflow
-  void updEl.offsetWidth;
-  updEl.classList.add("flash");
-}
-setUpdatedStrong(loadedAt);
-
-// 3) 카운트다운 + 주기 새로고침
-let remain = REFRESH_SEC;
-function tickRefresh() {
-  remain -= 1;
-  if (remain <= 0) {
-    // cache bust: URL에 ts를 붙여 강제 갱신
-    const u = new URL(location.href);
-    u.searchParams.set("t", Date.now());
-    location.replace(u.toString());
-    return;
-  }
-  if (cdEl) cdEl.textContent = String(remain);
-
-  // LIVE 점멸 느낌
-  if (pulseEl) pulseEl.style.opacity = (remain % 2 === 0 ? "1" : ".65");
-}
-if (cdEl) cdEl.textContent = String(remain);
-setInterval(tickRefresh, 1000);
-
-// 4) 풀스크린 버튼 (PC)
 if (fsBtn) {
   fsBtn.addEventListener("click", async () => {
     try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-      } else {
-        await document.exitFullscreen();
-      }
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+      else await document.exitFullscreen();
     } catch (e) {
       console.warn("fullscreen failed:", e);
     }
   });
 }
 
-   /* ==========================
-   ✅ sap_doc 기반 오늘/내일 출고 집계 (KST 고정 / 날짜 포맷 보정)
-   - D열: 출고일
-   - H열: 분류 (수출 작업의뢰서 / 배송 의뢰서)
-   - I열: 컨테이너 타입 (앞 2자리 20 / 40)
-========================== */
+// ✅ 최초 1회 로드
+await refreshData();
 
-const COL_SHIP_DATE = 3;  // D
-const COL_CLASSIFY  = 7;  // H
-const COL_TYPE      = 8;  // I
+// ✅ 1초 카운트 + 30초마다 데이터만 갱신
+let remain = REFRESH_SEC;
+if (cdEl) cdEl.textContent = String(remain);
 
-const KST_FMT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Seoul",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-// ✅ 한국 날짜(YYYY-MM-DD) — 브라우저 타임존과 무관하게 KST로 계산
-function getKRYMD(offsetDays = 0) {
-  const base = new Date(Date.now() + offsetDays * 86400_000);
-  return KST_FMT.format(base); // en-CA => YYYY-MM-DD
-}
-
-function norm(v) {
-  return String(v ?? "").replace(/\r/g, "").trim();
-}
-
-// ✅ 출고일을 YYYY-MM-DD로 정규화 (2025. 12. 1 / 2025-12-01 / 2025/12/01 모두 대응)
-function toYMD(s) {
-  s = norm(s);
-  if (!s) return "";
-
-  // 이미 YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // YYYY.MM.DD or YYYY. M. D
-  let m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})$/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
-
-  // YYYY/MM/DD or YYYY/M/D
-  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
-
-  // MM/DD (연도 없으면 KST 기준 올해로 가정)
-  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (m) {
-    const year = getKRYMD(0).slice(0, 4);
-    return `${year}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`;
+setInterval(async () => {
+  remain--;
+  if (remain <= 0) {
+    remain = REFRESH_SEC;
+    await refreshData(); // ✅ reload 없음 (깜빡임 없음)
   }
+  if (cdEl) cdEl.textContent = String(remain);
+  if (pulseEl) pulseEl.style.opacity = (remain % 2 === 0 ? "1" : ".65");
+}, 1000);
 
-  return s; // 마지막 fallback
-}
+</script>
 
-// ✅ I열에서 20/40 판별
-function getPt(v) {
-  const s = norm(v);
-  const head2 = s.replace(/[^0-9]/g, "").slice(0, 2);
-  if (head2 === "20") return "20";
-  if (head2 === "40") return "40";
-  return "";
-}
-
-const today = getKRYMD(0);
-const tomorrow = getKRYMD(1);
-
-const sapDocRows = hub.sources.sap_doc?.rows || [];
-
-// 카운터
-let t20 = 0, t40 = 0, tLcl = 0;
-let m20 = 0, m40 = 0, mLcl = 0;
-
-// 🔎 (디버그용) 오늘/내일 확인
-console.log("[KST] today/tomorrow =", today, tomorrow);
-console.log("[sap_doc rows] =", sapDocRows.length);
-
-for (const r of sapDocRows) {
-  const shipDate = toYMD(r[COL_SHIP_DATE]);
-  const cls = norm(r[COL_CLASSIFY]);
-
-  // 헤더 제거(출고일/분류 같은 글자면 스킵)
-  if (!shipDate || shipDate.includes("출고")) continue;
-
-  // 오늘
-  if (shipDate === today) {
-    if (cls === "수출 작업의뢰서") {
-      const pt = getPt(r[COL_TYPE]);
-      if (pt === "20") t20++;
-      else if (pt === "40") t40++;
-    } else if (cls === "배송 의뢰서") {
-      tLcl++;
-    }
-  }
-
-  // 내일
-  if (shipDate === tomorrow) {
-    if (cls === "수출 작업의뢰서") {
-      const pt = getPt(r[COL_TYPE]);
-      if (pt === "20") m20++;
-      else if (pt === "40") m40++;
-    } else if (cls === "배송 의뢰서") {
-      mLcl++;
-    }
-  }
-}
-
-// 합계
-const tExp = t20 + t40;
-const mExp = m20 + m40;
-
-// 화면 반영
-setText("k_today_20", t20);
-setText("k_today_40", t40);
-setText("k_today_exp", tExp);
-setText("k_today_lcl", tLcl);
-
-setText("k_tom_20", m20);
-setText("k_tom_40", m40);
-setText("k_tom_exp", mExp);
-setText("k_tom_lcl", mLcl);
-
-// 🔎 (디버그용) 결과 확인
-console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
-console.log("sources keys:", Object.keys(hub.sources));
-console.log("repair exists?", !!hub.sources.repair, "rows:", hub.sources.repair?.rows?.length);
-const rr = hub.sources.repair?.rows || [];
-console.log("repair row[0] len:", rr[0]?.length, "row[0]:", rr[0]);
-console.log("repair row[1] len:", rr[1]?.length, "row[1]:", rr[1]);
-
-// A/N/R 인덱스로 찍어보기(현재 가정)
-console.log("A/N/R by idx", rr[0]?.[0], rr[0]?.[13], rr[0]?.[17]);
-
-
-
-/* ==========================
-   ✅ 보수 작업량 : sap_item
-   - E열: 날짜
-   - R열: 값(장수)
-   - 한국시간 기준 월별 합계
-   - 현재월(큰숫자) + 최근 2개월 리스트 표시
-========================== */
-
-const COL_REPAIR_DATE = 4;   // E
-const COL_REPAIR_VAL  = 17;  // R
-
-const KST_YMD_FMT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Seoul",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-function getKRYMD2(offsetDays = 0) {
-  return KST_YMD_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
-}
-function toYMD2(s) {
-  s = String(s ?? "").replace(/\r/g, "").trim();
-  if (!s) return "";
-
-  // 이미 YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // 2026-01-25 00:00:00
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-
-  // 2025. 12. 1
-  m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-
-  // 2025/12/01
-  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-
-  // MM/DD (연도 없으면 KST 올해)
-  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (m) {
-    const year = getKRYMD2(0).slice(0, 4);
-    return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
-  }
-
-  // ✅ "1월 3일" (연도 없으면 KST 올해)
-  m = s.match(/^(\d{1,2})\s*월\s*(\d{1,2})\s*일$/);
-  if (m) {
-    const year = getKRYMD2(0).slice(0, 4);
-    return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
-  }
-
-  // ✅ "2026년 1월 3일"
-  m = s.match(/^(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일$/);
-  if (m) {
-    return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-  }
-
-  return s;
-}
-
-function toNum(v) {
-  const s = String(v ?? "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
-  if (!s) return 0;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
-}
-
-// ✅ YYYY-MM 만들기 / 월 이동(다음달)
-function ymFromYMD(ymd) { return ymd.slice(0,7); }
-function shiftYM(ym, diff) {
-  const y = Number(ym.slice(0,4));
-  const m = Number(ym.slice(5,7));
-  const d = new Date(Date.UTC(y, m - 1 + diff, 1));
-  const yy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2,"0");
-  return `${yy}-${mm}`;
-}
-function monthLabel(ym) {
-  return `${Number(ym.slice(5,7))}월`;
-}
-
-const ymNow  = ymFromYMD(getKRYMD2(0)); // 현재월 YYYY-MM
-const ymNext = shiftYM(ymNow, +1);      // ✅ 다음달 YYYY-MM
-
-const sapItemRows = hub.sources.sap_item?.rows || [];
-
-let sumNow = 0;
-let sumNext = 0;
-
-for (const r of sapItemRows) {
-  const d = toYMD2(r[COL_REPAIR_DATE]);
-  if (!d || d.includes("날짜")) continue;
-
-  const ym = ymFromYMD(d);
-  const val = toNum(r[COL_REPAIR_VAL]);
-
-  if (ym === ymNow) sumNow += val;
-  else if (ym === ymNext) sumNext += val;  // ✅ 다음달 합계
-}
-
-const fmtKR = new Intl.NumberFormat("ko-KR");
-
-// ✅ 큰 숫자 = 현재월 합계
-setText("k_issue", fmtKR.format(sumNow));
-
-// ✅ 월별 2줄 표시 (현재월 + 다음달)
-const listEl = document.getElementById("k_issue_month_list");
-if (listEl) {
-  listEl.innerHTML = `
-    <div>${monthLabel(ymNow)} ${fmtKR.format(sumNow)}</div>
-    <div>${monthLabel(ymNext)} ${fmtKR.format(sumNext)}</div>
-  `;
-}
-
-
-
-/* ==========================
-   ✅ 보수 작업 진행량(완료) : repair
-   - A열: 날짜
-   - R열: 상태(완료)
-   - N열: 수량 합계
-   - 한국시간 기준: 현재월 + 다음달
-========================== */
-
-const COL_REP_DATE   = 0;   // A
-const COL_REP_QTY    = 13;  // N
-const COL_REP_STATUS = 17;  // R
-
-const ymNowR  = getKRYMD2(0).slice(0, 7); // 예: 2026-01
-const ymNextR = shiftYM(ymNowR, +1);      // 예: 2026-02
-
-const repRows = hub.sources.repair?.rows || [];
-console.log("[repair] rows:", repRows.length);
-
-let doneNow = 0;
-let doneNext = 0;
-
-for (const r of repRows) {
-  const d = toYMD2(r?.[COL_REP_DATE]); // A
-  if (!d || d.includes("날짜")) continue;
-
-  const ym = d.slice(0, 7);
-  if (ym !== ymNowR && ym !== ymNextR) continue;
-
-  const st = String(r?.[COL_REP_STATUS] ?? "")
-    .replace(/\r|\n/g, "")
-    .replace(/\s/g, ""); // 공백 제거
-
-  // ✅ 완료 조건 (완료/완료처리 등 포함)
-  if (!st.includes("완료")) continue;
-
-  const qty = toNum(r?.[COL_REP_QTY]); // N
-  if (!qty) continue;
-
-  if (ym === ymNowR) doneNow += qty;
-  else doneNext += qty;
-}
-
-const fmt = new Intl.NumberFormat("ko-KR");
-
-// 큰 숫자 = 현재월 완료 합계
-setText("k_repair_done", fmt.format(doneNow));
-
-// 월별 2줄 = 현재월 / 다음달
-const repairListEl = document.getElementById("k_repair_done_list");
-if (repairListEl) {
-  repairListEl.innerHTML = `
-    <div>${Number(ymNowR.slice(5,7))}월 ${fmt.format(doneNow)}</div>
-    <div>${Number(ymNextR.slice(5,7))}월 ${fmt.format(doneNext)}</div>
-  `;
-}
-
-
-console.log("[repair done]", { ymNowR, doneNow, ymNextR, doneNext });
-
-
-/* ==========================
-   ✅ 재고 합계 : wms
-   - E열: 수량
-========================== */
-
-function calcInventory(hub) {
-  const COL_WMS_QTY = 4; // E
-  const wmsRows = hub.sources.wms?.rows || [];
-  let inventorySum = 0;
-
-  for (const r of wmsRows) {
-    if (!r || r.length <= COL_WMS_QTY) continue;
-    inventorySum += toNum(r[COL_WMS_QTY]);
-  }
-
-  setText("k_inventory", new Intl.NumberFormat("ko-KR").format(inventorySum));
-}
-
-function calcShipping(hub) {
-  // ✅ 너 기존 출고 집계 코드(오늘/내일 20/40/LCL) 블록을
-  // 이 함수 안에 그대로 넣으면 됨
-  // (지금 답변에서는 길어서 생략 — 너가 이미 붙여둔 코드 그대로 복붙)
-}
-
-function calcIssue(hub) {
-  // ✅ 너 기존 sap_item 보수 작업량 코드 블록을
-  // 이 함수 안에 그대로 넣으면 됨
-}
-
-function calcRepair(hub) {
-  // ✅ 너 기존 repair 완료 합계 코드 블록을
-  // 이 함수 안에 그대로 넣으면 됨
-}
-
-
-
-
-    /* ==========================
-       ✅ 상차장 카드 4개 세팅 함수
-       key: a | m | b1 | b2
-       ========================== */
-    function setDock(key, info) {
-      const done = Number(info.done || 0);
-      const total = Number(info.total || 0);
-      const pct = total > 0 ? Math.round(done / total * 100) : 0;
-
-      setText(`dock_${key}_done`, done);
-      setText(`dock_${key}_total`, total);
-      setText(`dock_${key}_pct`, pct);
-
-      setText(`dock_${key}_owner`, info.owner || "-");
-      setText(`dock_${key}_inv`, info.inv || "-");
-      setText(`dock_${key}_country`, info.country || "-");
-      setText(`dock_${key}_pt`, info.pt || "-");
-      setText(`dock_${key}_cbm`, info.cbm || "-");
-      setText(`dock_${key}_item`, info.item || "-");
-      setText(`dock_${key}_time`, info.time || "-");
-    }
-
-    // 지금은 기본값(추후 스캔/상차 CSV 연동 시 여기만 바꾸면 됨)
-    setDock("a",  { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
-    setDock("m",  { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
-    setDock("b1", { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
-    setDock("b2", { done:0, total:0, owner:"-", inv:"-", country:"-", pt:"-", cbm:"-", item:"-", time:"-" });
-
-  </script>
 </body>
 </html>
