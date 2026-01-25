@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>남경 검수시스템 · Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background:#eef1f5; }
+    .no-scrollbar::-webkit-scrollbar{ width:0; height:0; }
+    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+
+    /* KPI 공통 (전광판 고려: 조금 키움) */
+    .kpi-card{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      padding:16px;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+    .kpi-title{ font-size:12px; color:#64748b; font-weight:600; letter-spacing:.2px; }
+    .kpi-value{ margin-top:8px; font-size:30px; font-weight:800; line-height:1; }
+    .kpi-desc{ margin-top:6px; font-size:12px; color:#94a3b8; }
+
+    .kpi-warn{ border-color:#fecaca; background:#fff7f7; }
+    .kpi-live{ border-color:#bbf7d0; background:#f0fdf4; }
+
+    /* 상차장 전용(크게/정보 많음) */
+    .dock-card{
+      background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:0 8px 24px rgba(15,23,42,.18);
+    }
+    .dock-title{ font-size:13px; color:rgba(255,255,255,.78); font-weight:700; }
+    .dock-row{ margin-top:10px; display:flex; align-items:end; justify-content:space-between; gap:10px; }
+    .dock-percent{ font-size:34px; font-weight:900; line-height:1; letter-spacing:-.5px; }
+    .dock-sub{ font-size:12px; color:rgba(255,255,255,.75); }
+    .dock-meta{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:8px 12px;
+      font-size:12px;
+      color:rgba(255,255,255,.78);
+    }
+    .dock-meta .k{ color:rgba(255,255,255,.55); }
+    .pill{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.85);
+      white-space:nowrap;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen">
+
+  <!-- 기존 nav 유지 -->
+  <script src="nav.js"></script>
+
+  <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
+
+      <!-- =======================
+           Left Sidebar
+           ======================= -->
+      <aside class="lg:sticky lg:top-[76px] h-fit">
+        <div class="bg-[#1f2a58] text-white rounded-2xl overflow-hidden shadow-sm">
+          <div class="px-4 py-4 border-b border-white/10">
+            <div class="flex items-center gap-2">
+              <div class="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center font-bold text-sm">NK</div>
+              <div class="min-w-0">
+                <div class="text-sm font-semibold leading-5 truncate">남경 검수시스템</div>
+                <div class="text-[11px] text-white/70">WMS Dashboard</div>
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <div class="text-[11px] text-white/70">데이터 상태</div>
+              <div class="mt-1 flex items-center justify-between">
+                <span id="dataStatus" class="text-[12px] font-semibold">대기</span>
+                <span id="dataUpdated" class="text-[11px] text-white/70">-</span>
+              </div>
+            </div>
+          </div>
+
+          <nav class="px-2 py-2">
+            <a href="index.html" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10">
+              <span class="text-[12px] font-semibold">Dashboard</span>
+            </a>
+
+            <div class="mt-2 space-y-1">
+              <a href="scan.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">상차 스캔</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-sky-400/20 text-sky-200 border border-sky-300/20">RUN</span>
+              </a>
+
+              <a href="IN.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">입고검수</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-400/20 text-emerald-200 border border-emerald-300/20">OPEN</span>
+              </a>
+
+              <a href="OUT.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">출고검수</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-emerald-400/20 text-emerald-200 border border-emerald-300/20">OPEN</span>
+              </a>
+
+              <a href="index_shipping.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">출고정보</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-white/80">VIEW</span>
+              </a>
+
+              <a href="index_stock.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">재고조회</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-white/80">VIEW</span>
+              </a>
+
+              <a href="index_defect.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">결품조회</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-rose-400/20 text-rose-200 border border-rose-300/20">ISSUE</span>
+              </a>
+
+              <a href="detail_defect.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">전체결품</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-white/10 border border-white/15 text-white/80">LIST</span>
+              </a>
+
+              <a href="index_repair.html" class="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/10">
+                <span class="text-[12px]">보수작업</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 border border-amber-300/20">WORK</span>
+              </a>
+            </div>
+
+            <div class="mt-3 px-3 py-3 border-t border-white/10">
+              <div class="text-[11px] text-white/70 leading-5">
+                · 전광판 모니터용 구성<br/>
+                · 상차 스캔과 연동 예정(진행률/인보이스/국가/시간/담당)
+              </div>
+            </div>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- =======================
+           Main
+           ======================= -->
+      <main class="min-w-0">
+
+        <!-- Top Bar (제목만, 크게) -->
+        <div class="flex items-end justify-between gap-3 mb-4">
+          <div>
+            <div class="text-[12px] text-slate-500 font-semibold tracking-wide">DASHBOARD</div>
+            <div class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
+              상차 진행 현황 · 운영 모니터
+            </div>
+          </div>
+        </div>
+
+        <!-- =========================
+             1) 상차장 진행현황 (상단 고정)
+             ========================= -->
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+
+          <!-- A 상차장 -->
+          <div class="dock-card">
+            <div class="flex items-center justify-between">
+              <div class="dock-title">A 상차장 진행현황</div>
+              <span class="pill">LIVE</span>
+            </div>
+
+            <div class="dock-row">
+              <div class="dock-percent"><span id="dock_a_pct">0</span>%</div>
+              <div class="dock-sub"><span id="dock_a_done">0</span> / <span id="dock_a_total">0</span></div>
+            </div>
+
+            <div class="dock-meta">
+              <div><span class="k">인보이스</span> <span id="dock_a_inv">-</span></div>
+              <div><span class="k">국가</span> <span id="dock_a_country">-</span></div>
+              <div><span class="k">상차시간</span> <span id="dock_a_time">-</span></div>
+              <div><span class="k">담당자</span> <span id="dock_a_owner">-</span></div>
+            </div>
+          </div>
+
+          <!-- 이동 상차장 -->
+          <div class="dock-card">
+            <div class="flex items-center justify-between">
+              <div class="dock-title">이동 상차장 진행현황</div>
+              <span class="pill">LIVE</span>
+            </div>
+
+            <div class="dock-row">
+              <div class="dock-percent"><span id="dock_m_pct">0</span>%</div>
+              <div class="dock-sub"><span id="dock_m_done">0</span> / <span id="dock_m_total">0</span></div>
+            </div>
+
+            <div class="dock-meta">
+              <div><span class="k">인보이스</span> <span id="dock_m_inv">-</span></div>
+              <div><span class="k">국가</span> <span id="dock_m_country">-</span></div>
+              <div><span class="k">상차시간</span> <span id="dock_m_time">-</span></div>
+              <div><span class="k">담당자</span> <span id="dock_m_owner">-</span></div>
+            </div>
+          </div>
+
+          <!-- B-1 상차장 -->
+          <div class="dock-card">
+            <div class="flex items-center justify-between">
+              <div class="dock-title">B-1 상차장 진행현황</div>
+              <span class="pill">LIVE</span>
+            </div>
+
+            <div class="dock-row">
+              <div class="dock-percent"><span id="dock_b1_pct">0</span>%</div>
+              <div class="dock-sub"><span id="dock_b1_done">0</span> / <span id="dock_b1_total">0</span></div>
+            </div>
+
+            <div class="dock-meta">
+              <div><span class="k">인보이스</span> <span id="dock_b1_inv">-</span></div>
+              <div><span class="k">국가</span> <span id="dock_b1_country">-</span></div>
+              <div><span class="k">상차시간</span> <span id="dock_b1_time">-</span></div>
+              <div><span class="k">담당자</span> <span id="dock_b1_owner">-</span></div>
+            </div>
+          </div>
+
+          <!-- B-2 상차장 -->
+          <div class="dock-card">
+            <div class="flex items-center justify-between">
+              <div class="dock-title">B-2 상차장 진행현황</div>
+              <span class="pill">LIVE</span>
+            </div>
+
+            <div class="dock-row">
+              <div class="dock-percent"><span id="dock_b2_pct">0</span>%</div>
+              <div class="dock-sub"><span id="dock_b2_done">0</span> / <span id="dock_b2_total">0</span></div>
+            </div>
+
+            <div class="dock-meta">
+              <div><span class="k">인보이스</span> <span id="dock_b2_inv">-</span></div>
+              <div><span class="k">국가</span> <span id="dock_b2_country">-</span></div>
+              <div><span class="k">상차시간</span> <span id="dock_b2_time">-</span></div>
+              <div><span class="k">담당자</span> <span id="dock_b2_owner">-</span></div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- =========================
+             2) KPI Cards (8) : 4x2
+             ========================= -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div class="kpi-card">
+            <div class="kpi-title">오늘 컨테이너</div>
+            <div class="kpi-value tabular-nums" id="k_today_exp">0</div>
+            <div class="kpi-desc">수출 작업의뢰서</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">오늘 LCL</div>
+            <div class="kpi-value tabular-nums" id="k_today_lcl">0</div>
+            <div class="kpi-desc">배송 의뢰서</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">내일 컨테이너</div>
+            <div class="kpi-value tabular-nums" id="k_tom_exp">0</div>
+            <div class="kpi-desc">예정</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">내일 LCL</div>
+            <div class="kpi-value tabular-nums" id="k_tom_lcl">0</div>
+            <div class="kpi-desc">예정</div>
+          </div>
+
+          <div class="kpi-card kpi-warn">
+            <div class="kpi-title">보수 작업량</div>
+            <div class="kpi-value tabular-nums" id="k_issue">0</div>
+            <div class="kpi-desc">당일 발생</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">보수 작업 진행량</div>
+            <div class="kpi-value tabular-nums" id="k_repair_progress">-</div>
+            <div class="kpi-desc">진행 / 전체</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">재고</div>
+            <div class="kpi-value tabular-nums" id="k_inventory">-</div>
+            <div class="kpi-desc">WMS / SAP</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">유통기한</div>
+            <div class="kpi-value tabular-nums" id="k_expiry">-</div>
+            <div class="kpi-desc">주의 / 위험</div>
+          </div>
+        </section>
+
+        <!-- Table -->
+        <section class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div class="px-4 py-3 border-b bg-slate-50 flex items-center justify-between">
+            <div>
+              <div class="text-[13px] font-semibold text-slate-800">Today Issue List</div>
+              <div class="text-[11px] text-slate-500 mt-0.5">결품/검수 이슈 (당일) · 상위 30개</div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <a href="index_defect.html" class="text-[11px] px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50">결품조회</a>
+              <a href="detail_defect.html" class="text-[11px] px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50">전체결품</a>
+              <a href="index_repair.html" class="text-[11px] px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50">보수작업</a>
+            </div>
+          </div>
+
+          <div class="overflow-auto no-scrollbar">
+            <table class="w-full text-[12px]">
+              <thead class="bg-white">
+                <tr class="text-slate-500">
+                  <th class="px-3 py-2 text-left border-b">날짜</th>
+                  <th class="px-3 py-2 text-left border-b">INVOICE</th>
+                  <th class="px-3 py-2 text-left border-b">상태</th>
+                  <th class="px-3 py-2 text-left border-b">메모</th>
+                </tr>
+              </thead>
+
+              <tbody id="issueBody">
+                <tr><td class="px-3 py-3 text-slate-400" colspan="4">로딩중...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="mt-3 text-[11px] text-slate-500">
+          · 데이터는 registry 기반으로 자동 로딩됩니다. · 전광판 용도: 상단 상차장 진행현황을 먼저 보세요.
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- datahub 로딩/집계 -->
+  <script type="module">
+    import { DataHub } from "./datahub.js";
+
+    const URL_REGISTRY =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
+
+    const MAP_SAPDOC = { dateIdx: 2, typeIdx: 7 };
+    const MAP_DEFECT = { dateIdx: 1, statusIdx: 4 };
+
+    function getKRDate(offset = 0) {
+      const now = new Date();
+      const kr = new Date(now.getTime() + 9 * 3600000 + offset * 86400000);
+      return kr.toISOString().slice(0, 10);
+    }
+
+    const statusEl = document.getElementById("dataStatus");
+    const updatedEl = document.getElementById("dataUpdated");
+
+    const hub = await DataHub.loadAll(URL_REGISTRY, (p) => {
+      if (!statusEl) return;
+      if (p.phase === "registry") {
+        statusEl.textContent =
+          p.status === "ok" ? `Registry OK (${p.count}개)` :
+          p.status === "cached" ? "Registry 캐시 사용" :
+          p.status === "loading" ? "Registry 로딩..." : "Registry 오류";
+      }
+      if (p.phase === "source") {
+        if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
+        if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
+        if (p.status === "error") statusEl.textContent = `${p.name} 오류`;
+      }
+    });
+
+    const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
+    if (updatedEl) updatedEl.textContent = loadedAt;
+
+    const today = getKRDate(0);
+    const tomorrow = getKRDate(1);
+
+    // ===== KPI: sap_doc =====
+    const sapDocRows = hub.sources.sap_doc?.rows || [];
+    let todayExp=0, todayLcl=0, tomExp=0, tomLcl=0;
+
+    for (const r of sapDocRows) {
+      const date = (r[MAP_SAPDOC.dateIdx] || "").trim();
+      const type = (r[MAP_SAPDOC.typeIdx] || "").trim();
+      if (date === today) {
+        if (type === "수출 작업의뢰서") todayExp++;
+        if (type === "배송 의뢰서") todayLcl++;
+      }
+      if (date === tomorrow) {
+        if (type === "수출 작업의뢰서") tomExp++;
+        if (type === "배송 의뢰서") tomLcl++;
+      }
+    }
+
+    const setText = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=String(v); };
+    setText("k_today_exp", todayExp);
+    setText("k_today_lcl", todayLcl);
+    setText("k_tom_exp", tomExp);
+    setText("k_tom_lcl", tomLcl);
+
+    // ===== KPI + Table: defect =====
+    const defectRows = hub.sources.defect?.rows || [];
+    let issueCount = 0;
+    const list = [];
+
+    for (const r of defectRows) {
+      const d = (r[MAP_DEFECT.dateIdx] || "").trim();
+      const st = (r[MAP_DEFECT.statusIdx] || "").trim();
+      if (d !== today) continue;
+      if (!st) continue;
+      if (st === "입고완료" || st === "입고 완료") continue;
+
+      issueCount++;
+      const invoiceGuess = (r[0] || r[2] || "").trim();
+      const memoGuess = (r[5] || r[6] || r[3] || "").trim();
+      list.push({ date: d, invoice: invoiceGuess, status: st, memo: memoGuess });
+    }
+
+    // 현재는 보수 작업량 자리에 issueCount 임시(추후 repair 연동 시 교체)
+    setText("k_issue", issueCount);
+
+    const tbody = document.getElementById("issueBody");
+    if (tbody) {
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td class="px-3 py-3 text-slate-400" colspan="4">오늘 이슈가 없습니다.</td></tr>`;
+      } else {
+        tbody.innerHTML = list.slice(0, 30).map(x => `
+          <tr class="hover:bg-slate-50">
+            <td class="px-3 py-2 border-b">${escapeHtml(x.date)}</td>
+            <td class="px-3 py-2 border-b font-semibold text-slate-800">${escapeHtml(x.invoice)}</td>
+            <td class="px-3 py-2 border-b text-rose-700">${escapeHtml(x.status)}</td>
+            <td class="px-3 py-2 border-b text-slate-500">${escapeHtml(x.memo)}</td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replaceAll("&","&amp;").replaceAll("<","&lt;")
+        .replaceAll(">","&gt;").replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    /* ==========================================================
+       ✅ 상차장 연동 준비 (나중에 scan 데이터로 채우면 됨)
+       - 아래 형태만 맞춰서 값을 setText로 꽂으면 전광판 완성
+       - 예시:
+         setDock("a", {done: 120, total: 200, inv:"INV123", country:"VN", time:"14:10", owner:"홍길동"})
+       ========================================================== */
+
+    function setDock(key, info) {
+      const done = Number(info.done || 0);
+      const total = Number(info.total || 0);
+      const pct = total > 0 ? Math.round(done / total * 100) : 0;
+
+      setText(`dock_${key}_done`, done);
+      setText(`dock_${key}_total`, total);
+      setText(`dock_${key}_pct`, pct);
+
+      setText(`dock_${key}_inv`, info.inv || "-");
+      setText(`dock_${key}_country`, info.country || "-");
+      setText(`dock_${key}_time`, info.time || "-");
+      setText(`dock_${key}_owner`, info.owner || "-");
+    }
+
+    // 지금은 기본값(0) 그대로. 나중에 스캔 연동 시 여기서 setDock 호출하면 됨.
+    // setDock("a", {done: 0, total: 0, inv:"-", country:"-", time:"-", owner:"-"});
+    // setDock("m", {...});
+    // setDock("b1", {...});
+    // setDock("b2", {...});
+  </script>
+
+</body>
+</html>
+
