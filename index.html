@@ -377,41 +377,71 @@
     const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
     if (updatedEl) updatedEl.textContent = loadedAt;
 
-    /* ==========================
-   ✅ sap_doc 기반 오늘/내일 출고 집계
-   - D열: 출고일 (YYYY-MM-DD)
+   /* ==========================
+   ✅ sap_doc 기반 오늘/내일 출고 집계 (KST 고정 / 날짜 포맷 보정)
+   - D열: 출고일
    - H열: 분류 (수출 작업의뢰서 / 배송 의뢰서)
    - I열: 컨테이너 타입 (앞 2자리 20 / 40)
 ========================== */
 
-// 컬럼 인덱스 (0부터)
 const COL_SHIP_DATE = 3;  // D
 const COL_CLASSIFY  = 7;  // H
 const COL_TYPE      = 8;  // I
 
-function getKRDateYMD(offsetDays = 0) {
-  const now = new Date();
-  // 브라우저 로컬이 어디든 상관없이 KST로 맞추기
-  const kr = new Date(now.getTime() + 9 * 3600_000 + offsetDays * 86400_000);
-  return kr.toISOString().slice(0, 10); // YYYY-MM-DD
+const KST_FMT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+// ✅ 한국 날짜(YYYY-MM-DD) — 브라우저 타임존과 무관하게 KST로 계산
+function getKRYMD(offsetDays = 0) {
+  const base = new Date(Date.now() + offsetDays * 86400_000);
+  return KST_FMT.format(base); // en-CA => YYYY-MM-DD
 }
 
-function norm(s) {
-  return String(s ?? "").trim();
+function norm(v) {
+  return String(v ?? "").replace(/\r/g, "").trim();
 }
 
-// I열에서 20/40 판별
-function getPtFromI(v) {
-  const s = norm(v);
+// ✅ 출고일을 YYYY-MM-DD로 정규화 (2025. 12. 1 / 2025-12-01 / 2025/12/01 모두 대응)
+function toYMD(s) {
+  s = norm(s);
   if (!s) return "";
-  const head2 = s.replace(/[^0-9]/g, "").slice(0, 2); // 숫자만 뽑고 앞2자리
+
+  // 이미 YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // YYYY.MM.DD or YYYY. M. D
+  let m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
+
+  // YYYY/MM/DD or YYYY/M/D
+  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2, "0")}-${String(m[3]).padStart(2, "0")}`;
+
+  // MM/DD (연도 없으면 KST 기준 올해로 가정)
+  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (m) {
+    const year = getKRYMD(0).slice(0, 4);
+    return `${year}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`;
+  }
+
+  return s; // 마지막 fallback
+}
+
+// ✅ I열에서 20/40 판별
+function getPt(v) {
+  const s = norm(v);
+  const head2 = s.replace(/[^0-9]/g, "").slice(0, 2);
   if (head2 === "20") return "20";
   if (head2 === "40") return "40";
   return "";
 }
 
-const today = getKRDateYMD(0);
-const tomorrow = getKRDateYMD(1);
+const today = getKRYMD(0);
+const tomorrow = getKRYMD(1);
 
 const sapDocRows = hub.sources.sap_doc?.rows || [];
 
@@ -419,23 +449,23 @@ const sapDocRows = hub.sources.sap_doc?.rows || [];
 let t20 = 0, t40 = 0, tLcl = 0;
 let m20 = 0, m40 = 0, mLcl = 0;
 
-// 헤더가 있을 수 있으니 "출고일" 같은 헤더면 스킵
+// 🔎 (디버그용) 오늘/내일 확인
+console.log("[KST] today/tomorrow =", today, tomorrow);
+console.log("[sap_doc rows] =", sapDocRows.length);
+
 for (const r of sapDocRows) {
-  const shipDate = norm(r[COL_SHIP_DATE]);
+  const shipDate = toYMD(r[COL_SHIP_DATE]);
   const cls = norm(r[COL_CLASSIFY]);
 
+  // 헤더 제거(출고일/분류 같은 글자면 스킵)
   if (!shipDate || shipDate.includes("출고")) continue;
 
   // 오늘
   if (shipDate === today) {
     if (cls === "수출 작업의뢰서") {
-      const pt = getPtFromI(r[COL_TYPE]);
+      const pt = getPt(r[COL_TYPE]);
       if (pt === "20") t20++;
       else if (pt === "40") t40++;
-      else {
-        // pt 정보가 없으면 컨테이너 합계에서만 올리고 싶으면 여기서 처리 가능
-        // 지금은 무시(20/40 외 타입은 제외)
-      }
     } else if (cls === "배송 의뢰서") {
       tLcl++;
     }
@@ -444,7 +474,7 @@ for (const r of sapDocRows) {
   // 내일
   if (shipDate === tomorrow) {
     if (cls === "수출 작업의뢰서") {
-      const pt = getPtFromI(r[COL_TYPE]);
+      const pt = getPt(r[COL_TYPE]);
       if (pt === "20") m20++;
       else if (pt === "40") m40++;
     } else if (cls === "배송 의뢰서") {
@@ -453,11 +483,11 @@ for (const r of sapDocRows) {
   }
 }
 
-// 컨테이너 총합
+// 합계
 const tExp = t20 + t40;
 const mExp = m20 + m40;
 
-// 화면 반영 (이미 네 HTML에 있는 ID들)
+// 화면 반영
 setText("k_today_20", t20);
 setText("k_today_40", t40);
 setText("k_today_exp", tExp);
@@ -467,6 +497,10 @@ setText("k_tom_20", m20);
 setText("k_tom_40", m40);
 setText("k_tom_exp", mExp);
 setText("k_tom_lcl", mLcl);
+
+// 🔎 (디버그용) 결과 확인
+console.log("[result] today:", { t20, t40, tExp, tLcl }, "tomorrow:", { m20, m40, mExp, mLcl });
+
 
 
     /* ==========================
