@@ -443,25 +443,48 @@
     };
 
     const statusEl = document.getElementById("dataStatus");
-    const updatedEl = document.getElementById("dataUpdated");
+const updatedEl = document.getElementById("dataUpdated");
 
-    const hub = await DataHub.loadAll(URL_REGISTRY, (p) => {
-      if (!statusEl) return;
-      if (p.phase === "registry") {
-        statusEl.textContent =
-          p.status === "ok" ? `Registry OK (${p.count}개)` :
-          p.status === "cached" ? "Registry 캐시 사용" :
-          p.status === "loading" ? "Registry 로딩..." : "Registry 오류";
-      }
-      if (p.phase === "source") {
-        if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
-        if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
-        if (p.status === "error") statusEl.textContent = `${p.name} 오류`;
-      }
-    });
+/* ==========================
+   ✅ 데이터 갱신 함수 (화면 유지)
+========================== */
+async function refreshData() {
+  // 캐시 방지
+  const REG_URL = URL_REGISTRY + (URL_REGISTRY.includes("?") ? "&" : "?") + "t=" + Date.now();
 
-    const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
-    if (updatedEl) updatedEl.textContent = loadedAt;
+  const hub = await DataHub.loadAll(REG_URL, (p) => {
+    if (!statusEl) return;
+
+    if (p.phase === "registry") {
+      statusEl.textContent =
+        p.status === "ok" ? `Registry OK (${p.count}개)` :
+        p.status === "cached" ? "Registry 캐시 사용" :
+        p.status === "loading" ? "Registry 로딩..." :
+        "Registry 오류";
+    }
+
+    if (p.phase === "source") {
+      if (p.status === "loading") statusEl.textContent = `${p.name} 로딩...`;
+      if (p.status === "ok") statusEl.textContent = `${p.name} OK (${p.rows}행)`;
+      if (p.status === "error") statusEl.textContent = `${p.name} 오류`;
+    }
+  });
+
+  // 마지막 갱신 시간
+  const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
+  if (updatedEl) updatedEl.textContent = loadedAt;
+
+  // 🔽 기존 집계 코드들을 "hub" 기준으로 그대로 실행
+  // (로직 수정 ❌, 위치만 이동)
+  calcShipping(hub);
+  calcIssue(hub);
+  calcRepair(hub);
+  calcInventory(hub);
+  // calcDock(hub); // 나중에 상차 연동 시
+
+  return hub;
+}
+
 /* ==========================
    ✅ 전광판 모드: 시계/갱신강조/자동 새로고침
    - 30초마다 reload (전광판용)
