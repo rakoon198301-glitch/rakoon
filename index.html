@@ -94,6 +94,19 @@
 }
 
     .subline span:last-child{ font-variant-numeric: tabular-nums; color:#0f172a; font-weight:900; }
+
+/* ✅ 전광판: 갱신 강조 */
+@keyframes flash {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.02); filter: brightness(1.15); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.flash {
+  animation: flash .6s ease-out 1;
+}
+
+
+
   </style>
 </head>
 
@@ -192,6 +205,40 @@
            Main
            ======================= -->
       <main class="min-w-0">
+
+        <!-- ✅ 전광판 상태 바 -->
+<div id="boardBar" class="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="text-[11px] font-extrabold text-slate-500 tracking-widest">DISPLAY MODE</div>
+      <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">
+        남경 검수시스템 · DASHBOARD
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="text-right">
+        <div id="boardClock" class="text-lg md:text-xl font-extrabold tabular-nums text-slate-900">--:--:--</div>
+        <div class="text-[11px] text-slate-500">
+          마지막 갱신:
+          <span id="boardUpdated" class="font-extrabold text-sky-700">-</span>
+        </div>
+      </div>
+
+      <button id="btnFullscreen"
+        class="hidden md:inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-100">
+        FULLSCREEN
+      </button>
+    </div>
+  </div>
+
+  <div class="mt-2 flex items-center justify-between">
+    <div class="text-[11px] text-slate-500">
+      자동 새로고침 <b id="boardEvery">30</b>초 · 다음 갱신까지 <b id="boardCountdown">30</b>초
+    </div>
+    <div id="boardPulse" class="text-[11px] font-extrabold text-emerald-700">LIVE</div>
+  </div>
+</div>
 
         <div class="flex items-end justify-between gap-3 mb-4">
           <div>
@@ -415,6 +462,81 @@
 
     const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
     if (updatedEl) updatedEl.textContent = loadedAt;
+/* ==========================
+   ✅ 전광판 모드: 시계/갱신강조/자동 새로고침
+   - 30초마다 reload (전광판용)
+========================== */
+
+const REFRESH_SEC = 30;
+
+// 상단 전광판 요소
+const clockEl = document.getElementById("boardClock");
+const updEl = document.getElementById("boardUpdated");
+const cdEl = document.getElementById("boardCountdown");
+const everyEl = document.getElementById("boardEvery");
+const fsBtn = document.getElementById("btnFullscreen");
+const pulseEl = document.getElementById("boardPulse");
+
+if (everyEl) everyEl.textContent = String(REFRESH_SEC);
+
+// 1) 시계(한국시간)
+const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+function tickClock() {
+  if (!clockEl) return;
+  clockEl.textContent = KST_TIME_FMT.format(new Date());
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+// 2) 마지막 갱신 강조 표시 (dataUpdated -> boardUpdated)
+function setUpdatedStrong(text) {
+  if (!updEl) return;
+  updEl.textContent = text || "-";
+  updEl.classList.remove("flash");
+  // 강제 reflow
+  void updEl.offsetWidth;
+  updEl.classList.add("flash");
+}
+setUpdatedStrong(loadedAt);
+
+// 3) 카운트다운 + 주기 새로고침
+let remain = REFRESH_SEC;
+function tickRefresh() {
+  remain -= 1;
+  if (remain <= 0) {
+    // cache bust: URL에 ts를 붙여 강제 갱신
+    const u = new URL(location.href);
+    u.searchParams.set("t", Date.now());
+    location.replace(u.toString());
+    return;
+  }
+  if (cdEl) cdEl.textContent = String(remain);
+
+  // LIVE 점멸 느낌
+  if (pulseEl) pulseEl.style.opacity = (remain % 2 === 0 ? "1" : ".65");
+}
+if (cdEl) cdEl.textContent = String(remain);
+setInterval(tickRefresh, 1000);
+
+// 4) 풀스크린 버튼 (PC)
+if (fsBtn) {
+  fsBtn.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      console.warn("fullscreen failed:", e);
+    }
+  });
+}
 
    /* ==========================
    ✅ sap_doc 기반 오늘/내일 출고 집계 (KST 고정 / 날짜 포맷 보정)
