@@ -58,7 +58,6 @@ export const DataHub = (() => {
     })();
   }
 
-  // ✅ cache-bust는 fetch에만 사용 (항상 최신)
   async function fetchText(url, signal) {
     const bust = Date.now();
     const u = url + (url.includes("?") ? "&" : "?") + "t=" + bust;
@@ -80,7 +79,6 @@ export const DataHub = (() => {
       .filter(x => x.enabled === "1" || x.enabled.toLowerCase() === "true");
   }
 
-  // ✅ registryUrl이 &t=... 로 넘어와도 캐시 키는 고정되게 정규화
   function normalizeCacheUrl(url) {
     try {
       const u = new URL(String(url));
@@ -89,7 +87,6 @@ export const DataHub = (() => {
       u.searchParams.delete("cache");
       return u.toString();
     } catch {
-      // URL 파싱이 안되면 문자열에서 대충 제거(최후)
       return String(url).replace(/([?&])(t|_ts|cache)=[^&]*/g, "$1").replace(/[?&]$/, "");
     }
   }
@@ -115,7 +112,6 @@ export const DataHub = (() => {
       localStorage.setItem(key, value);
       return;
     } catch (e) {
-      // ✅ quota 초과면 NKG 캐시만 비우고 1회 재시도
       const msg = String(e?.message || e);
       if (msg.includes("exceeded the quota") || msg.includes("QuotaExceededError")) {
         clearNkgCache();
@@ -124,7 +120,7 @@ export const DataHub = (() => {
           return;
         } catch (e2) {
           console.warn("DataHub cache save failed even after cleanup:", e2);
-          return; // 캐시 저장 실패해도 로딩은 계속
+          return;
         }
       }
       console.warn("DataHub cache save failed:", e);
@@ -164,12 +160,12 @@ export const DataHub = (() => {
 
     const result = {
       meta: {
-        registryUrl: normalizeCacheUrl(registryUrl), // 메타에도 정규화된 값
+        registryUrl: normalizeCacheUrl(registryUrl),
         loadedAt: new Date().toISOString(),
         sourceCount: sources.length,
       },
-      sources: {}, // key -> {enabled,key,name,url,rows}
-      status: {},  // key -> {ok, rows|error}
+      sources: {},
+      status: {},
     };
 
     await Promise.allSettled(

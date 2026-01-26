@@ -1,3 +1,10 @@
+<!-- =========================
+✅ index_repair.html (통째로 교체본)
+- C열 값 규칙 반영:
+  - C=1  : 설비작업대기 목록에서 제외(삭제)
+  - C=2  : 설비작업대기 목록에 포함 + 행 전체 연하게 표시
+  - C=빈칸: 설비작업대기 목록에 포함(일반)
+========================= -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -16,12 +23,14 @@
       box-shadow:0 1px 2px rgba(0,0,0,.05);
     }
 
+    /* KPI */
     .kpi-title{ font-size:12px; color:#64748b; font-weight:900; letter-spacing:.2px; }
     .kpi-value{ margin-top:8px; font-size:28px; font-weight:900; line-height:1; }
     .kpi-desc{ margin-top:6px; font-size:12px; color:#94a3b8; font-weight:700; }
     .kpi-warn{ border-color:#fecaca; background:#fff7f7; }
     .kpi-green{ border-color:#bbf7d0; background:#f0fdf4; }
 
+    /* 설비 전광판 */
     .board{
       background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
       color:#fff;
@@ -58,6 +67,7 @@
     .board-v{ margin-top:8px; font-size:34px; font-weight:900; line-height:1; letter-spacing:-.6px; color:#fff; }
     .board-s{ margin-top:8px; font-size:12px; font-weight:800; color:rgba(255,255,255,.70); }
 
+    /* 설비 하단 2칸 */
     .board-mini{
       margin-top:12px;
       display:grid;
@@ -73,8 +83,13 @@
     .mini-k{ font-size:12px; font-weight:900; color:rgba(255,255,255,.70); }
     .mini-v{ margin-top:8px; font-size:18px; font-weight:900; color:#fff; line-height:1.2; }
 
+    /* 테이블 */
     table { border-collapse: separate; border-spacing:0; }
-    thead th{ position: sticky; top:0; background:#f8fafc; z-index:1; }
+    thead th{
+      position: sticky; top:0;
+      background:#f8fafc;
+      z-index:1;
+    }
     .td, .th{
       border-bottom:1px solid #e5e7eb;
       padding:10px 10px;
@@ -84,13 +99,10 @@
     }
     .th{ font-weight:900; color:#334155; }
 
-    /* 진행중 표시(옵션) */
-    .tag-run{
-      display:inline-flex; align-items:center; gap:6px;
-      font-size:11px; font-weight:900;
-      padding:3px 8px; border-radius:999px;
-      background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;
-    }
+    /* ✅ C=2 행 전체 연하게 */
+    .row-soft { background:#fff7ed; }   /* 연한 베이지/오렌지 */
+    .row-soft:hover { background:#ffedd5; }
+
   </style>
 </head>
 
@@ -99,8 +111,11 @@
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
     <div class="relative">
+
+      <!-- Overlay -->
       <div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-40 hidden"></div>
 
+      <!-- Sidebar (접힘) -->
       <aside id="sidebar"
         class="fixed z-50 top-0 left-0 h-full w-[270px] md:w-[290px] lg:w-[300px]
                -translate-x-full transition-transform duration-200 ease-out">
@@ -137,7 +152,8 @@
               <div class="mt-3 px-3 py-3 border-t border-white/10">
                 <div class="text-[11px] text-white/70 leading-5">
                   · 좌측: KPI + 설비 전광판<br/>
-                  · 우측: 설비작업대기(대기만)
+                  · 우측: 설비작업대기 테이블<br/>
+                  · C=1 제외 / C=2 연하게 표시
                 </div>
               </div>
             </nav>
@@ -145,7 +161,10 @@
         </div>
       </aside>
 
+      <!-- MAIN -->
       <main class="min-w-0">
+
+        <!-- 상단 바 -->
         <div class="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
@@ -184,14 +203,20 @@
           </div>
         </div>
 
+        <!-- ✅ 전체 2열: LEFT(40%) / RIGHT(60%) -->
         <section class="grid grid-cols-1 xl:grid-cols-[2fr_3fr] gap-4">
+
+          <!-- ================= LEFT ================= -->
           <div class="min-w-0">
+
+            <!-- ✅ KPI 2x2 -->
             <div class="grid grid-cols-2 gap-3">
               <div class="card kpi-warn p-4">
                 <div class="kpi-title">보수 작업량</div>
                 <div class="kpi-value tabular-nums" id="k_repair_plan_total">0</div>
                 <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_repair_plan_months">
-                  <div>1월 0</div><div>2월 0</div>
+                  <div>1월 0</div>
+                  <div>2월 0</div>
                 </div>
               </div>
 
@@ -199,7 +224,8 @@
                 <div class="kpi-title">보수 작업 진행량</div>
                 <div class="kpi-value tabular-nums" id="k_repair_done_total">0</div>
                 <div class="mt-2 text-[13px] font-extrabold text-slate-700 space-y-1" id="k_repair_done_months">
-                  <div>1월 0</div><div>2월 0</div>
+                  <div>1월 0</div>
+                  <div>2월 0</div>
                 </div>
               </div>
 
@@ -216,8 +242,10 @@
               </div>
             </div>
 
+            <!-- 구분선 -->
             <div class="my-4 border-t border-slate-200"></div>
 
+            <!-- ✅ 설비 전광판 -->
             <div class="board">
               <div class="flex items-center justify-between">
                 <div class="board-title">설비</div>
@@ -257,6 +285,7 @@
             </div>
           </div>
 
+          <!-- ================= RIGHT ================= -->
           <div class="card overflow-hidden min-w-0">
             <div class="px-4 py-3 border-b border-slate-200 bg-white flex items-center justify-between">
               <div>
@@ -296,11 +325,14 @@
                   </tr>
                 </thead>
                 <tbody id="waitTbody">
-                  <tr><td class="td text-slate-400" colspan="7">데이터 로딩 후 표시됩니다…</td></tr>
+                  <tr>
+                    <td class="td text-slate-400" colspan="7">데이터 로딩 후 표시됩니다…</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
         </section>
 
       </main>
@@ -313,9 +345,11 @@
     const URL_REGISTRY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
 
+    // facility(enabled=0)라도 무조건 최신 direct 로드
     const URL_FACILITY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=743719058&single=true&output=csv";
 
+    // record도 direct 로드
     const URL_RECORD =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=184086545&single=true&output=csv";
 
@@ -338,6 +372,7 @@
       return Number.isFinite(n) ? n : 0;
     }
 
+    // KST YYYY-MM-DD
     const KST_FMT = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Seoul",
       year: "numeric",
@@ -348,6 +383,7 @@
       return KST_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
     }
 
+    // 문자열 날짜 → YYYY-MM-DD
     function toYMD(s) {
       s = norm(s);
       if (!s) return "";
@@ -367,11 +403,11 @@
         const year = getKRYMD(0).slice(0,4);
         return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
       }
-      // 날짜+시간 형태(YYYY-MM-DD HH:mm:ss)면 앞 10자리 잘라서 처리
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
       return s;
     }
 
+    // YYYY-MM
     function ymFromYMD(ymd){ return ymd.slice(0,7); }
     function shiftYM(ym, diff){
       const y = Number(ym.slice(0,4));
@@ -422,23 +458,26 @@
       if (boardUpdatedEl) boardUpdatedEl.textContent = text || "-";
     }
 
-    // ✅ header 줄 수가 달라도 start row를 자동으로 찾기
+    // facility: 헤더 줄 수가 달라도 오늘날짜를 찾는 start row
     function findStartRowByToday(rows, dateColIndex){
       const today = getKRYMD(0);
-      for(let i=0; i<Math.min(rows.length, 20); i++){
+      for(let i=0; i<Math.min(rows.length, 25); i++){
         const ymd = toYMD(rows[i]?.[dateColIndex]);
         if (ymd === today) return i;
       }
-      // 못 찾으면 2(기존) fallback
-      return 2;
+      return 2; // fallback
     }
 
     /* ==========================
-       1) 보수 작업량 (sap_item)
+       ✅ 1) 보수 작업량 (sap_item)
+       - E(4): 날짜
+       - R(17): 장수
+       - 현재월 + 다음달
     ========================== */
     function calcIssue(hub){
       const COL_DATE = 4;   // E
       const COL_VAL  = 17;  // R
+
       const ymNow  = ymFromYMD(getKRYMD(0));
       const ymNext = shiftYM(ymNow, +1);
 
@@ -466,7 +505,11 @@
     }
 
     /* ==========================
-       2) 보수 작업 진행량(완료) (repair)
+       ✅ 2) 보수 작업 진행량(완료) (repair)
+       - A(0): 날짜
+       - N(13): 수량 합
+       - R(17): 상태(완료 포함)
+       - 현재월 + 다음달
     ========================== */
     function calcRepairDone(hub){
       const COL_DATE   = 0;   // A
@@ -507,15 +550,15 @@
     }
 
     /* ==========================
-       3) record 평균 (항상 direct)
-       - G 평균 / F 평균
+       ✅ 3) record 평균
+       - 일평균 작업량: record G열(6) 평균 (G3~)
+       - 설비 평균 작업량: record F열(5) 평균 (F3~)
     ========================== */
     function calcRecordAverages(recordRows){
       const rows = recordRows || [];
-      // record는 날짜 컬럼 위치가 불명이라 start를 딱 고정하지 않고 "3행부터" 원칙 유지
-      const start = 2;
-      const COL_F = 5;
-      const COL_G = 6;
+      const start = 2; // row3부터
+      const COL_F = 5; // F
+      const COL_G = 6; // G
 
       let sumF=0, cntF=0;
       let sumG=0, cntG=0;
@@ -523,40 +566,43 @@
       for(let i=start; i<rows.length; i++){
         const r = rows[i];
         if(!r) continue;
+
         const fRaw = norm(r[COL_F]);
         const gRaw = norm(r[COL_G]);
         const f = toNum(fRaw);
         const g = toNum(gRaw);
+
         if (fRaw !== "" && f !== 0) { sumF += f; cntF++; }
         if (gRaw !== "" && g !== 0) { sumG += g; cntG++; }
       }
 
-      const avgF = cntF ? (sumF / cntF) : 0;
-      const avgG = cntG ? (sumG / cntG) : 0;
-
-      setText("k_avg_general", fmtKR.format(Math.round(avgG)));
-      setText("k_avg_facility", fmtKR.format(Math.round(avgF)));
+      setText("k_avg_general", fmtKR.format(Math.round(cntG ? (sumG/cntG) : 0)));
+      setText("k_avg_facility", fmtKR.format(Math.round(cntF ? (sumF/cntF) : 0)));
     }
 
     /* ==========================
-       4) facility 오늘 데이터 (항상 direct)
-       - totals: 오늘 N 합계(전체)
-       - run: 오늘 + C=1 의 N 합계
-       - table: "대기"만 => C!=1 만 표시
+       ✅ 4) facility 오늘 데이터
+       - B열 오늘 날짜 기준
+       - C열: 빈칸/1/2
+         - 1이면 설비작업대기 목록에서 제외(삭제)
+         - 2이면 목록 포함 + 행 전체 연하게 표시
+       - 합계/진행량은 기존 기준 유지:
+         totalSum = 오늘 N열 합계(전체)
+         runSum   = 오늘 C=1 인 N열 합계
     ========================== */
     function calcFacilityToday(fRows){
       const rows = fRows || [];
       const today = getKRYMD(0);
 
-      const COL_INV = 0;   // A
-      const COL_DATE = 1;  // B
-      const COL_WORK = 2;  // C
-      const COL_CODE = 4;  // E
-      const COL_BOX  = 5;  // F
-      const COL_NAME = 6;  // G
-      const COL_OUT  = 11; // L
-      const COL_IN   = 12; // M
-      const COL_SUM  = 13; // N
+      const COL_INV  = 0;   // A
+      const COL_DATE = 1;   // B
+      const COL_WORK = 2;   // C
+      const COL_CODE = 4;   // E
+      const COL_BOX  = 5;   // F
+      const COL_NAME = 6;   // G
+      const COL_OUT  = 11;  // L
+      const COL_IN   = 12;  // M
+      const COL_SUM  = 13;  // N
 
       const start = findStartRowByToday(rows, COL_DATE);
 
@@ -564,7 +610,7 @@
       let runSum = 0;
 
       const allToday = [];
-      const waitOnly = [];
+      const waitList = []; // ✅ 테이블용(C!=1만)
 
       for(let i=start; i<rows.length; i++){
         const r = rows[i];
@@ -573,9 +619,10 @@
         const ymd = toYMD(r[COL_DATE]);
         if(ymd !== today) continue;
 
-        const work = norm(r[COL_WORK]);
+        const work = norm(r[COL_WORK]); // "", "1", "2"
         const nsum = toNum(r[COL_SUM]);
 
+        // 전광판 합계/진행량은 원칙대로 계산
         totalSum += nsum;
         if (work === "1") runSum += nsum;
 
@@ -587,11 +634,17 @@
           name: norm(r[COL_NAME]),
           outBox: toNum(r[COL_OUT]),
           inProd: toNum(r[COL_IN]),
-          sum: nsum,
+          sum: nsum
         };
 
         allToday.push(obj);
-        if (work !== "1") waitOnly.push(obj);
+
+        // ✅ "설비작업대기 목록" 규칙:
+        // - C=1 은 제외(삭제)
+        // - C=빈칸 or 2 는 포함
+        if (work !== "1") {
+          waitList.push(obj);
+        }
       }
 
       setText("fac_wait", fmtKR.format(Math.round(totalSum)));
@@ -600,14 +653,15 @@
       const pct = totalSum > 0 ? Math.round((runSum / totalSum) * 100) : 0;
       setText("fac_pct", pct);
 
-      const pick = waitOnly[0] || allToday[0];
+      // 전광판 인보이스: 대기목록 1건 우선
+      const pick = waitList[0] || allToday[0];
       setText("fac_inv", pick?.inv || "-");
       setText("fac_country", "-");
 
-      // 정렬(안정): 합계 큰 순, 그 다음 인보이스
-      waitOnly.sort((a,b) => (b.sum - a.sum) || String(a.inv).localeCompare(String(b.inv)));
+      // 정렬(안정)
+      waitList.sort((a,b) => (b.sum - a.sum) || String(a.inv).localeCompare(String(b.inv)));
 
-      return { allToday, waitOnly };
+      return { allToday, waitList };
     }
 
     function renderFacilityTable(list){
@@ -617,6 +671,7 @@
       if(!tbody) return;
 
       const q = norm(document.getElementById("qWait")?.value).toLowerCase();
+
       const filtered = (list || []).filter(x => {
         if(!q) return true;
         return (
@@ -628,33 +683,34 @@
       });
 
       if(countEl) countEl.textContent = String(filtered.length);
-      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "대기만(오늘)";
+      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "오늘 기준(C=1 제외)";
 
       if(filtered.length === 0){
-        tbody.innerHTML = `<tr><td class="td text-slate-400" colspan="7">오늘 대기 데이터 없음</td></tr>`;
+        tbody.innerHTML = `<tr><td class="td text-slate-400" colspan="7">오늘 데이터 없음</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = filtered.map(x => `
-        <tr>
-          <td class="td text-left">
-            ${x.inv || "-"}
-            ${x.work === "1" ? `<span class="tag-run ml-2">진행</span>` : ``}
-          </td>
-          <td class="td text-left">${x.code || "-"}</td>
-          <td class="td text-left">${x.box || "-"}</td>
-          <td class="td text-left">${x.name || "-"}</td>
-          <td class="td text-right tabular-nums">${fmtKR.format(x.outBox || 0)}</td>
-          <td class="td text-right tabular-nums">${fmtKR.format(x.inProd || 0)}</td>
-          <td class="td text-right tabular-nums font-extrabold">${fmtKR.format(x.sum || 0)}</td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = filtered.map(x => {
+        // ✅ C=2면 행 전체 연하게
+        const trClass = (x.work === "2") ? "row-soft" : "";
+        return `
+          <tr class="${trClass}">
+            <td class="td text-left">${x.inv || "-"}</td>
+            <td class="td text-left">${x.code || "-"}</td>
+            <td class="td text-left">${x.box || "-"}</td>
+            <td class="td text-left">${x.name || "-"}</td>
+            <td class="td text-right tabular-nums">${fmtKR.format(x.outBox || 0)}</td>
+            <td class="td text-right tabular-nums">${fmtKR.format(x.inProd || 0)}</td>
+            <td class="td text-right tabular-nums font-extrabold">${fmtKR.format(x.sum || 0)}</td>
+          </tr>
+        `;
+      }).join("");
     }
 
     /* ==========================
-       ✅ 데이터 갱신(핵심 수정)
-       - sap_item/repair만 DataHub
-       - record/facility는 무조건 direct (캐시 혼용 제거)
+       ✅ 데이터 갱신
+       - sap_item/repair: DataHub
+       - record/facility: direct 최신
     ========================== */
     async function refreshData(){
       try{
@@ -680,24 +736,24 @@
         const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
         flashUpdated(loadedAt);
 
-        // KPI
+        // KPI(기존 로직)
         calcIssue(hub);
         calcRepairDone(hub);
 
-        // ✅ record: 항상 direct 최신
+        // record 평균(최신 direct)
         const recordRows = await fetchCsvRowsDirect(URL_RECORD);
         calcRecordAverages(recordRows);
 
-        // ✅ facility: 항상 direct 최신
+        // facility(최신 direct)
         const facilityRows = await fetchCsvRowsDirect(URL_FACILITY);
-        const { allToday, waitOnly } = calcFacilityToday(facilityRows);
+        const { allToday, waitList } = calcFacilityToday(facilityRows);
 
         window.__facility_all_today = allToday;
-        window.__facility_wait_list = waitOnly;
+        window.__facility_wait_list = waitList;
 
-        renderFacilityTable(waitOnly);
+        renderFacilityTable(waitList);
+
         return hub;
-
       } catch(e){
         console.error("refreshData error:", e);
         if (statusEl) statusEl.textContent = "오류: " + (e?.message || e);
@@ -706,8 +762,9 @@
     }
 
     /* ==========================
-       UI
+       ✅ UI: Sidebar/Clock/Fullscreen/검색
     ========================== */
+    // Sidebar
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebarOverlay");
     const btnSidebar = document.getElementById("btnSidebar");
@@ -717,11 +774,13 @@
     overlay?.addEventListener("click", closeSidebar);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
 
+    // Clock
     const clockEl = document.getElementById("boardClock");
     const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", { timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", second:"2-digit" });
     const tickClock = () => { if(clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date()); };
     tickClock(); setInterval(tickClock, 1000);
 
+    // Fullscreen
     document.getElementById("btnFullscreen")?.addEventListener("click", async () => {
       try{
         if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
@@ -729,10 +788,14 @@
       }catch{}
     });
 
+    // 검색
     document.getElementById("qWait")?.addEventListener("input", () => {
       renderFacilityTable(window.__facility_wait_list || []);
     });
 
+    /* ==========================
+       ✅ 전광판 폴링(리로드X)
+    ========================== */
     const REFRESH_SEC = 30;
     const cdEl = document.getElementById("boardCountdown");
     const everyEl = document.getElementById("boardEvery");
@@ -745,8 +808,10 @@
       await refreshData();
     });
 
+    // 최초 로드
     await refreshData();
 
+    // 카운트 + 갱신
     let remain = REFRESH_SEC;
     if (cdEl) cdEl.textContent = String(remain);
 
