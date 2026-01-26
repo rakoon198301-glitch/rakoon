@@ -1,4 +1,6 @@
-// datahub.js
+// =========================
+// ✅ datahub.js (그대로 포함, 복붙용)
+// =========================
 export const DataHub = (() => {
   const FETCH_OPTS = { cache: "no-store" };
   const DEFAULT_TIMEOUT_MS = 15000;
