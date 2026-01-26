@@ -1,9 +1,10 @@
 <!-- =========================
-✅ index_repair.html (통째로 교체본)
-- C열 값 규칙 반영:
-  - C=1  : 설비작업대기 목록에서 제외(삭제)
-  - C=2  : 설비작업대기 목록에 포함 + 행 전체 연하게 표시
-  - C=빈칸: 설비작업대기 목록에 포함(일반)
+✅ index_repair.html (통째로 교체본 / 복붙용)
+- ✅ C열 값 규칙(강화판):
+  - C=1 (1, "1 ", "1.0" 포함) : 설비작업대기 목록에서 제외(삭제)
+  - C=2 (2, "2 ", "2.0" 포함) : 목록 포함 + 행 전체 연하게 표시 + 최상단 우선 정렬
+  - C=빈칸(=0 취급)          : 목록 포함(일반)
+- ✅ facility/record는 direct fetch로만 로드 (왔다갔다/초기화 방지)
 ========================= -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -100,9 +101,8 @@
     .th{ font-weight:900; color:#334155; }
 
     /* ✅ C=2 행 전체 연하게 */
-    .row-soft { background:#fff7ed; }   /* 연한 베이지/오렌지 */
+    .row-soft { background:#fff7ed; }
     .row-soft:hover { background:#ffedd5; }
-
   </style>
 </head>
 
@@ -153,7 +153,7 @@
                 <div class="text-[11px] text-white/70 leading-5">
                   · 좌측: KPI + 설비 전광판<br/>
                   · 우측: 설비작업대기 테이블<br/>
-                  · C=1 제외 / C=2 연하게 표시
+                  · C=1 제외 / C=2 연하게 + 최상단
                 </div>
               </div>
             </nav>
@@ -242,7 +242,6 @@
               </div>
             </div>
 
-            <!-- 구분선 -->
             <div class="my-4 border-t border-slate-200"></div>
 
             <!-- ✅ 설비 전광판 -->
@@ -345,18 +344,16 @@
     const URL_REGISTRY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
 
-    // facility(enabled=0)라도 무조건 최신 direct 로드
+    // ✅ facility/record는 direct 최신만 사용
     const URL_FACILITY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=743719058&single=true&output=csv";
 
-    // record도 direct 로드
     const URL_RECORD =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=184086545&single=true&output=csv";
 
     const statusEl = document.getElementById("dataStatus");
     const updatedEl = document.getElementById("dataUpdated");
     const boardUpdatedEl = document.getElementById("boardUpdated");
-
     const fmtKR = new Intl.NumberFormat("ko-KR");
 
     const setText = (id, v) => {
@@ -383,7 +380,6 @@
       return KST_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
     }
 
-    // 문자열 날짜 → YYYY-MM-DD
     function toYMD(s) {
       s = norm(s);
       if (!s) return "";
@@ -407,7 +403,6 @@
       return s;
     }
 
-    // YYYY-MM
     function ymFromYMD(ymd){ return ymd.slice(0,7); }
     function shiftYM(ym, diff){
       const y = Number(ym.slice(0,4));
@@ -458,22 +453,17 @@
       if (boardUpdatedEl) boardUpdatedEl.textContent = text || "-";
     }
 
-    // facility: 헤더 줄 수가 달라도 오늘날짜를 찾는 start row
+    // 헤더 줄 수가 달라도 오늘날짜 시작행 찾기
     function findStartRowByToday(rows, dateColIndex){
       const today = getKRYMD(0);
-      for(let i=0; i<Math.min(rows.length, 25); i++){
+      for(let i=0; i<Math.min(rows.length, 30); i++){
         const ymd = toYMD(rows[i]?.[dateColIndex]);
         if (ymd === today) return i;
       }
-      return 2; // fallback
+      return 2;
     }
 
-    /* ==========================
-       ✅ 1) 보수 작업량 (sap_item)
-       - E(4): 날짜
-       - R(17): 장수
-       - 현재월 + 다음달
-    ========================== */
+    /* ✅ 1) 보수 작업량 (sap_item) */
     function calcIssue(hub){
       const COL_DATE = 4;   // E
       const COL_VAL  = 17;  // R
@@ -504,13 +494,7 @@
       }
     }
 
-    /* ==========================
-       ✅ 2) 보수 작업 진행량(완료) (repair)
-       - A(0): 날짜
-       - N(13): 수량 합
-       - R(17): 상태(완료 포함)
-       - 현재월 + 다음달
-    ========================== */
+    /* ✅ 2) 보수 작업 진행량(완료) (repair) */
     function calcRepairDone(hub){
       const COL_DATE   = 0;   // A
       const COL_QTY    = 13;  // N
@@ -549,11 +533,7 @@
       }
     }
 
-    /* ==========================
-       ✅ 3) record 평균
-       - 일평균 작업량: record G열(6) 평균 (G3~)
-       - 설비 평균 작업량: record F열(5) 평균 (F3~)
-    ========================== */
+    /* ✅ 3) record 평균 */
     function calcRecordAverages(recordRows){
       const rows = recordRows || [];
       const start = 2; // row3부터
@@ -569,6 +549,7 @@
 
         const fRaw = norm(r[COL_F]);
         const gRaw = norm(r[COL_G]);
+
         const f = toNum(fRaw);
         const g = toNum(gRaw);
 
@@ -580,16 +561,7 @@
       setText("k_avg_facility", fmtKR.format(Math.round(cntF ? (sumF/cntF) : 0)));
     }
 
-    /* ==========================
-       ✅ 4) facility 오늘 데이터
-       - B열 오늘 날짜 기준
-       - C열: 빈칸/1/2
-         - 1이면 설비작업대기 목록에서 제외(삭제)
-         - 2이면 목록 포함 + 행 전체 연하게 표시
-       - 합계/진행량은 기존 기준 유지:
-         totalSum = 오늘 N열 합계(전체)
-         runSum   = 오늘 C=1 인 N열 합계
-    ========================== */
+    /* ✅ 4) facility 오늘 데이터 (C=1 제외 강화 + C=2 최상단) */
     function calcFacilityToday(fRows){
       const rows = fRows || [];
       const today = getKRYMD(0);
@@ -610,7 +582,7 @@
       let runSum = 0;
 
       const allToday = [];
-      const waitList = []; // ✅ 테이블용(C!=1만)
+      const waitList = [];
 
       for(let i=start; i<rows.length; i++){
         const r = rows[i];
@@ -619,16 +591,16 @@
         const ymd = toYMD(r[COL_DATE]);
         if(ymd !== today) continue;
 
-        const work = norm(r[COL_WORK]); // "", "1", "2"
+        const workRaw = norm(r[COL_WORK]); // "", "1", "2", "1.0" 등
+        const workNum = toNum(workRaw);    // ✅ 숫자 판정 강화
         const nsum = toNum(r[COL_SUM]);
 
-        // 전광판 합계/진행량은 원칙대로 계산
         totalSum += nsum;
-        if (work === "1") runSum += nsum;
+        if (workNum === 1) runSum += nsum; // ✅ 진행량은 C=1
 
         const obj = {
           inv: norm(r[COL_INV]),
-          work,
+          work: workRaw, // 표시/스타일링용(2 하이라이트)
           code: norm(r[COL_CODE]),
           box:  norm(r[COL_BOX]),
           name: norm(r[COL_NAME]),
@@ -639,10 +611,8 @@
 
         allToday.push(obj);
 
-        // ✅ "설비작업대기 목록" 규칙:
-        // - C=1 은 제외(삭제)
-        // - C=빈칸 or 2 는 포함
-        if (work !== "1") {
+        // ✅ 설비작업대기 목록: C=1은 제외(삭제)
+        if (workNum !== 1) {
           waitList.push(obj);
         }
       }
@@ -653,13 +623,22 @@
       const pct = totalSum > 0 ? Math.round((runSum / totalSum) * 100) : 0;
       setText("fac_pct", pct);
 
-      // 전광판 인보이스: 대기목록 1건 우선
+      // 전광판 인보이스: C!=1 목록 우선 / 없으면 전체 첫건
       const pick = waitList[0] || allToday[0];
       setText("fac_inv", pick?.inv || "-");
       setText("fac_country", "-");
 
-      // 정렬(안정)
-      waitList.sort((a,b) => (b.sum - a.sum) || String(a.inv).localeCompare(String(b.inv)));
+      // ✅ 정렬: C=2 최상단 → 합계 큰 순 → 인보이스
+      waitList.sort((a, b) => {
+        const a2 = (toNum(a.work) === 2) ? 1 : 0;
+        const b2 = (toNum(b.work) === 2) ? 1 : 0;
+        if (a2 !== b2) return b2 - a2;
+
+        const ds = (b.sum - a.sum);
+        if (ds !== 0) return ds;
+
+        return String(a.inv || "").localeCompare(String(b.inv || ""));
+      });
 
       return { allToday, waitList };
     }
@@ -683,7 +662,7 @@
       });
 
       if(countEl) countEl.textContent = String(filtered.length);
-      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "오늘 기준(C=1 제외)";
+      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "오늘 기준(C=1 제외 / C=2 우선)";
 
       if(filtered.length === 0){
         tbody.innerHTML = `<tr><td class="td text-slate-400" colspan="7">오늘 데이터 없음</td></tr>`;
@@ -691,8 +670,8 @@
       }
 
       tbody.innerHTML = filtered.map(x => {
-        // ✅ C=2면 행 전체 연하게
-        const trClass = (x.work === "2") ? "row-soft" : "";
+        // ✅ C=2 행 전체 연하게
+        const trClass = (toNum(x.work) === 2) ? "row-soft" : "";
         return `
           <tr class="${trClass}">
             <td class="td text-left">${x.inv || "-"}</td>
@@ -707,11 +686,7 @@
       }).join("");
     }
 
-    /* ==========================
-       ✅ 데이터 갱신
-       - sap_item/repair: DataHub
-       - record/facility: direct 최신
-    ========================== */
+    /* ✅ 데이터 갱신 */
     async function refreshData(){
       try{
         const REG_URL = URL_REGISTRY + (URL_REGISTRY.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -736,15 +711,14 @@
         const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
         flashUpdated(loadedAt);
 
-        // KPI(기존 로직)
+        // KPI
         calcIssue(hub);
         calcRepairDone(hub);
 
-        // record 평균(최신 direct)
+        // record/facility 최신 direct
         const recordRows = await fetchCsvRowsDirect(URL_RECORD);
         calcRecordAverages(recordRows);
 
-        // facility(최신 direct)
         const facilityRows = await fetchCsvRowsDirect(URL_FACILITY);
         const { allToday, waitList } = calcFacilityToday(facilityRows);
 
@@ -761,10 +735,7 @@
       }
     }
 
-    /* ==========================
-       ✅ UI: Sidebar/Clock/Fullscreen/검색
-    ========================== */
-    // Sidebar
+    /* ✅ UI: Sidebar/Clock/Fullscreen/검색 */
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebarOverlay");
     const btnSidebar = document.getElementById("btnSidebar");
@@ -793,9 +764,7 @@
       renderFacilityTable(window.__facility_wait_list || []);
     });
 
-    /* ==========================
-       ✅ 전광판 폴링(리로드X)
-    ========================== */
+    /* ✅ 전광판 폴링 */
     const REFRESH_SEC = 30;
     const cdEl = document.getElementById("boardCountdown");
     const everyEl = document.getElementById("boardEvery");
@@ -808,10 +777,8 @@
       await refreshData();
     });
 
-    // 최초 로드
     await refreshData();
 
-    // 카운트 + 갱신
     let remain = REFRESH_SEC;
     if (cdEl) cdEl.textContent = String(remain);
 
