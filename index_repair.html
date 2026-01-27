@@ -255,13 +255,13 @@
                 <div class="board-cell">
                   <div class="board-k">당일 작업량</div>
                   <div class="board-v tabular-nums" id="fac_wait">0</div>
-                  <div class="board-s">오늘 설비품목 합계</div>
+                  <div class="board-s">설비품목 합계</div>
                 </div>
 
                 <div class="board-cell">
                   <div class="board-k">작업진행</div>
                   <div class="board-v tabular-nums" id="fac_run">0</div>
-                  <div class="board-s">오늘 작업진행 합계</div>
+                  <div class="board-s">작업진행 합계</div>
                 </div>
 
                 <div class="board-cell">
@@ -288,7 +288,7 @@
           <div class="card overflow-hidden min-w-0">
             <div class="px-4 py-3 border-b border-slate-200 bg-white flex items-center justify-between">
               <div>
-                <div class="text-[12px] font-extrabold text-slate-900">설비작업대기품목리슽</div>
+                <div class="text-[12px] font-extrabold text-slate-900">작업 대기 품목리스트</div>
                 <div class="text-[11px] text-slate-500 font-semibold">
                   　
                 </div>
@@ -662,7 +662,7 @@
       });
 
       if(countEl) countEl.textContent = String(filtered.length);
-      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "오늘 기준(C=1 제외 / C=2 우선)";
+      if(hintEl) hintEl.textContent = q ? `검색: ${q}` : "　　)";
 
       if(filtered.length === 0){
         tbody.innerHTML = `<tr><td class="td text-slate-400" colspan="7">오늘 데이터 없음</td></tr>`;
