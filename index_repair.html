@@ -1,10 +1,5 @@
 <!-- =========================
-✅ index_repair.html (통째로 교체본 / 복붙용)
-- ✅ C열 값 규칙(강화판):
-  - C=1 (1, "1 ", "1.0" 포함) : 설비작업대기 목록에서 제외(삭제)
-  - C=2 (2, "2 ", "2.0" 포함) : 목록 포함 + 행 전체 연하게 표시 + 최상단 우선 정렬
-  - C=빈칸(=0 취급)          : 목록 포함(일반)
-- ✅ facility/record는 direct fetch로만 로드 (왔다갔다/초기화 방지)
+ index_repair.html 
 ========================= -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -100,7 +95,7 @@
     }
     .th{ font-weight:900; color:#334155; }
 
-    /* ✅ C=2 행 전체 연하게 */
+    /*  C=2 행 전체 연하게 */
     .row-soft { background:#fff7ed; }
     .row-soft:hover { background:#ffedd5; }
   </style>
@@ -203,13 +198,13 @@
           </div>
         </div>
 
-        <!-- ✅ 전체 2열: LEFT(40%) / RIGHT(60%) -->
+        <!--  전체 2열: LEFT(40%) / RIGHT(60%) -->
         <section class="grid grid-cols-1 xl:grid-cols-[2fr_3fr] gap-4">
 
           <!-- ================= LEFT ================= -->
           <div class="min-w-0">
 
-            <!-- ✅ KPI 2x2 -->
+            <!--  KPI 2x2 -->
             <div class="grid grid-cols-2 gap-3">
               <div class="card kpi-warn p-4">
                 <div class="kpi-title">보수 작업량</div>
@@ -244,7 +239,7 @@
 
             <div class="my-4 border-t border-slate-200"></div>
 
-            <!-- ✅ 설비 전광판 -->
+            <!--  설비 전광판 -->
             <div class="board">
               <div class="flex items-center justify-between">
                 <div class="board-title">설비</div>
@@ -344,7 +339,7 @@
     const URL_REGISTRY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=1348530486&single=true&output=csv";
 
-    // ✅ facility/record는 direct 최신만 사용
+    //  facility/record는 direct 최신만 사용
     const URL_FACILITY =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vRAWmUNAeyndXfdxHjR-1CakW_Tm3OzmMTng5RkB53umXwucqpxABqMMcB0y8H5cHNg7aoHYqFztz0F/pub?gid=743719058&single=true&output=csv";
 
@@ -453,7 +448,7 @@
       if (boardUpdatedEl) boardUpdatedEl.textContent = text || "-";
     }
 
-    // 헤더 줄 수가 달라도 오늘날짜 시작행 찾기
+    //  오늘날짜 시작행 찾기
     function findStartRowByToday(rows, dateColIndex){
       const today = getKRYMD(0);
       for(let i=0; i<Math.min(rows.length, 30); i++){
@@ -463,7 +458,7 @@
       return 2;
     }
 
-    /* ✅ 1) 보수 작업량 (sap_item) */
+    //  1) 보수 작업량 (sap_item) */
     function calcIssue(hub){
       const COL_DATE = 4;   // E
       const COL_VAL  = 17;  // R
@@ -494,7 +489,7 @@
       }
     }
 
-    /* ✅ 2) 보수 작업 진행량(완료) (repair) */
+    //  2) 보수 작업 진행량(완료) (repair) */
     function calcRepairDone(hub){
       const COL_DATE   = 0;   // A
       const COL_QTY    = 13;  // N
@@ -533,7 +528,7 @@
       }
     }
 
-    /* ✅ 3) record 평균 */
+    //  3) record 평균 */
     function calcRecordAverages(recordRows){
       const rows = recordRows || [];
       const start = 2; // row3부터
@@ -561,7 +556,7 @@
       setText("k_avg_facility", fmtKR.format(Math.round(cntF ? (sumF/cntF) : 0)));
     }
 
-    /* ✅ 4) facility 오늘 데이터 (C=1 제외 강화 + C=2 최상단) */
+    //  4) facility 오늘 데이터  */
     function calcFacilityToday(fRows){
       const rows = fRows || [];
       const today = getKRYMD(0);
@@ -591,12 +586,12 @@
         const ymd = toYMD(r[COL_DATE]);
         if(ymd !== today) continue;
 
-        const workRaw = norm(r[COL_WORK]); // "", "1", "2", "1.0" 등
-        const workNum = toNum(workRaw);    // ✅ 숫자 판정 강화
+        const workRaw = norm(r[COL_WORK]); 
+        const workNum = toNum(workRaw);    
         const nsum = toNum(r[COL_SUM]);
 
         totalSum += nsum;
-        if (workNum === 1) runSum += nsum; // ✅ 진행량은 C=1
+        if (workNum === 1) runSum += nsum; 
 
         const obj = {
           inv: norm(r[COL_INV]),
@@ -611,7 +606,7 @@
 
         allToday.push(obj);
 
-        // ✅ 설비작업대기 목록: C=1은 제외(삭제)
+        //  설비작업대기 목록: C=1은 제외(삭제)
         if (workNum !== 1) {
           waitList.push(obj);
         }
@@ -628,7 +623,7 @@
       setText("fac_inv", pick?.inv || "-");
       setText("fac_country", "-");
 
-      // ✅ 정렬: C=2 최상단 → 합계 큰 순 → 인보이스
+      //  정렬: C=2 최상단 → 합계 큰 순 → 인보이스
       waitList.sort((a, b) => {
         const a2 = (toNum(a.work) === 2) ? 1 : 0;
         const b2 = (toNum(b.work) === 2) ? 1 : 0;
@@ -670,7 +665,7 @@
       }
 
       tbody.innerHTML = filtered.map(x => {
-        // ✅ C=2 행 전체 연하게
+        //  C=2 행 전체 연하게
         const trClass = (toNum(x.work) === 2) ? "row-soft" : "";
         return `
           <tr class="${trClass}">
@@ -686,7 +681,7 @@
       }).join("");
     }
 
-    /* ✅ 데이터 갱신 */
+    //  데이터 갱신 */
     async function refreshData(){
       try{
         const REG_URL = URL_REGISTRY + (URL_REGISTRY.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -735,7 +730,7 @@
       }
     }
 
-    /* ✅ UI: Sidebar/Clock/Fullscreen/검색 */
+    //  UI: Sidebar/Clock/Fullscreen/검색 */
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebarOverlay");
     const btnSidebar = document.getElementById("btnSidebar");
@@ -764,7 +759,7 @@
       renderFacilityTable(window.__facility_wait_list || []);
     });
 
-    /* ✅ 전광판 폴링 */
+    // 전광판 폴링 /
     const REFRESH_SEC = 30;
     const cdEl = document.getElementById("boardCountdown");
     const everyEl = document.getElementById("boardEvery");
