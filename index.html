@@ -1,8 +1,5 @@
 <!-- =========================
-  ✅ index.html (복붙용 완성본)
-  - DASHBOARD 전광판 모드: 사이드바 기본 접힘(슬라이드)
-  - MENU 버튼으로 열기/닫기, 오버레이 클릭/ESC 닫기
-  - 기존 DataHub 사용 구조 유지 (datahub.js는 아래 별도 파일로 그대로)
+  index.html 
 ========================= -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -62,7 +59,7 @@
       color:rgba(255,255,255,.95);
     }
 
-    /* ✅ 2x3 배열 */
+    /*  2x3 배열 */
     .dock-grid{
       margin-top:12px;
       display:grid;
@@ -99,7 +96,7 @@
       background:#f0fdf4;
     }
 
-    /* ✅ 전광판: 갱신 강조 */
+    /*  전광판: 갱신 강조 */
     @keyframes flash {
       0% { transform: scale(1); filter: brightness(1); }
       50% { transform: scale(1.02); filter: brightness(1.15); }
@@ -111,7 +108,7 @@
 
 <body class="min-h-screen">
 
-  <!-- ✅ 기존 nav.js 유지 -->
+  <!--  기존 nav.js 유지 -->
   <script src="nav.js"></script>
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
@@ -121,7 +118,7 @@
       <div id="sidebarOverlay" class="fixed inset-0 bg-black/40 z-40 hidden"></div>
 
       <!-- =======================
-           ✅ Sidebar (기본 접힘, 슬라이드)
+            Sidebar (기본 접힘, 슬라이드)
            ======================= -->
       <aside id="sidebar"
         class="fixed z-50 top-0 left-0 h-full w-[270px] md:w-[290px] lg:w-[300px]
@@ -214,7 +211,7 @@
            ======================= -->
       <main class="min-w-0">
 
-        <!-- ✅ 전광판 상태 바 -->
+        <!--  전광판 상태 바 -->
         <div id="boardBar" class="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
@@ -225,7 +222,7 @@
             </div>
 
             <div class="flex items-center gap-3">
-              <!-- ✅ MENU 버튼 -->
+              <!--  MENU 버튼 -->
               <button id="btnSidebar"
                 class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
                 MENU
@@ -263,7 +260,7 @@
           </div>
         </div>
 
-        <!-- ✅ 상단 4칸 -->
+        <!--  상단 4칸 -->
         <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
 
           <!-- A -->
@@ -431,7 +428,7 @@
   </div>
 
   <!-- =========================
-       ✅ 모듈 스크립트 (DataHub + Dashboard 로직)
+        모듈 스크립트 (DataHub + Dashboard 로직)
   ========================== -->
   <script type="module">
     import { DataHub } from "./datahub.js";
@@ -459,7 +456,7 @@
     }
 
     /* ==========================
-       ✅ Sidebar Toggle (Dashboard Mode)
+        Sidebar Toggle (Dashboard Mode)
     ========================== */
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebarOverlay");
@@ -493,7 +490,7 @@
     });
 
     /* ==========================
-       ✅ 공통 유틸
+        공통 유틸
     ========================== */
     function norm(v) {
       return String(v ?? "").replace(/\r/g, "").trim();
@@ -554,7 +551,7 @@
     const fmtKR = new Intl.NumberFormat("ko-KR");
 
     /* ==========================
-       ✅ 1) 출고 집계 (sap_doc)
+           1) 출고 집계 (sap_doc)
        - D(3): 출고일
        - H(7): 분류
        - I(8): 컨테이너타입(20/40)
@@ -617,7 +614,7 @@
     }
 
     /* ==========================
-       ✅ 2) 보수 작업량 (sap_item)
+           2) 보수 작업량 (sap_item)
        - E(4): 날짜
        - R(17): 장수
        - 현재월 + 다음달
@@ -654,7 +651,7 @@
     }
 
     /* ==========================
-       ✅ 3) 보수 작업 진행량(완료) (repair)
+            3) 보수 작업 진행량(완료) (repair)
        - A(0): 날짜
        - R(17): 상태(완료 포함)
        - N(13): 수량 합
@@ -700,7 +697,7 @@
     }
 
     /* ==========================
-       ✅ 4) 재고 합계 (wms)
+           4) 재고 합계 (wms)
        - E(4): 수량 합
     ========================== */
     function calcInventory(hub){
@@ -717,7 +714,7 @@
     }
 
     /* ==========================
-       ✅ 상차장 카드(임시)
+         상차장 카드(임시)
     ========================== */
     function setDock(key, info) {
       const done = Number(info.done || 0);
@@ -738,7 +735,7 @@
     }
 
     /* ==========================
-       ✅ 데이터 갱신(화면 유지)
+        데이터 갱신(화면 유지)
     ========================== */
     async function refreshData() {
       try {
@@ -763,7 +760,7 @@
         const loadedAt = hub.meta.loadedAt.replace("T"," ").slice(0,19);
         flashUpdated(loadedAt);
 
-        // ✅ 값만 업데이트
+        //  값만 업데이트
         calcShipping(hub);
         calcIssue(hub);
         calcRepair(hub);
@@ -784,7 +781,7 @@
     }
 
     /* ==========================
-       ✅ 전광판: 시계 + 폴링(리로드X)
+        전광판: 시계 + 폴링(리로드X)
     ========================== */
     const REFRESH_SEC = 30;
     const clockEl = document.getElementById("boardClock");
@@ -818,10 +815,10 @@
       });
     }
 
-    // ✅ 최초 1회 로드
+    //  최초 1회 로드
     await refreshData();
 
-    // ✅ 1초 카운트 + 30초마다 데이터만 갱신
+    //  1초 카운트 + 30초마다 데이터만 갱신
     let remain = REFRESH_SEC;
     if (cdEl) cdEl.textContent = String(remain);
 
@@ -829,7 +826,7 @@
       remain--;
       if (remain <= 0) {
         remain = REFRESH_SEC;
-        await refreshData(); // ✅ reload 없음
+        await refreshData(); //  reload 없음
       }
       if (cdEl) cdEl.textContent = String(remain);
       if (pulseEl) pulseEl.style.opacity = (remain % 2 === 0 ? "1" : ".65");
