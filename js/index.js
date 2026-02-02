@@ -1,10 +1,11 @@
-/* ============================================================
-   index.js (Dashboard - Shipping)
-   - daily: 출고 누계(올해), 월별 누계(올해 1~12), 출고정보(오늘~+6)
-   - sap_doc: 출고 요약(오늘, 수출 작업의뢰서만)
-   - 자동 새로고침 없음
-   - 상단바: 시계 + 풀스크린만
-============================================================ */
+/* =========================
+   Dashboard index.js (전체 통합)
+   - 출고요약(당일): sap_doc
+   - 출고누계/월별/7일: daily
+   - 보수(예상/완료/잔량): sap_item + bosu
+   - 설비(당월/다음달): daily
+   - 작업장별(전체누계): daily
+========================= */
 
 const URL_DAILY =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=430924108&single=true&output=csv";
@@ -12,61 +13,69 @@ const URL_DAILY =
 const URL_SAP_DOC =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1210262064&single=true&output=csv";
 
-const fmt = new Intl.NumberFormat("ko-KR");
+const URL_SAP_ITEM =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1124687656&single=true&output=csv";
 
-function $(id) { return document.getElementById(id); }
-function norm(v) { return String(v ?? "").replace(/\r/g, "").trim(); }
-function normNoSpace(v){ return norm(v).replace(/\s+/g, ""); }
+const URL_BOSU =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=617786742&single=true&output=csv";
 
-function toNum(v) {
-  const s = String(v ?? "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim();
-  if (!s) return 0;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
-}
+/* =========================
+   DOM helpers
+========================= */
+const $ = (id) => document.getElementById(id);
+const fmtKR = new Intl.NumberFormat("ko-KR");
 
-// KST YYYY-MM-DD
-const KST_FMT = new Intl.DateTimeFormat("en-CA", {
+/* =========================
+   KST date/time helpers
+========================= */
+const KST_YMD = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Seoul",
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
 });
+
 function getKRYMD(offsetDays = 0) {
-  return KST_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
-}
-function getKRY(){ return getKRYMD(0).slice(0,4); }
-
-// 날짜 문자열 → YYYY-MM-DD
-function toYMD(s) {
-  s = norm(s);
-  if (!s) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-
-  m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-
-  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
-  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
-
-  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (m) {
-    const year = getKRY();
-    return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
-  }
-  return s;
+  return KST_YMD.format(new Date(Date.now() + offsetDays * 86400_000));
 }
 
+function nowKST_HM() {
+  // "07:10" 형태
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return f.format(new Date());
+}
+
+function ymFromYMD(ymd) { return String(ymd || "").slice(0, 7); }
+
+function shiftYM(ym, diff) {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(5, 7));
+  const d = new Date(Date.UTC(y, m - 1 + diff, 1));
+  const yy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${yy}-${mm}`;
+}
+
+function monthLabel(ym) {
+  return `${Number(ym.slice(5, 7))}월`;
+}
+
+/* =========================
+   CSV
+========================= */
 async function fetchText(url) {
-  const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache:"no-store" });
-  if (!res.ok) throw new Error("CSV 로딩 실패: HTTP " + res.status);
+  const u = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+  const res = await fetch(u, { cache: "no-store" });
+  if (!res.ok) throw new Error("CSV 로딩 실패: " + res.status);
   return await res.text();
 }
 
-// CSV 파서
+// 따옴표 포함 CSV 파서
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -81,139 +90,129 @@ function parseCsv(text) {
       else inQuotes = !inQuotes;
       continue;
     }
-    if (ch === "," && !inQuotes) { row.push(field); field = ""; continue; }
+
+    if (ch === "," && !inQuotes) {
+      row.push(field); field = "";
+      continue;
+    }
+
     if (ch === "\n" && !inQuotes) {
       row.push(field); field = "";
-      rows.push(row.map(v => (v ?? "").replace(/\r/g,"")));
+      rows.push(row.map(v => String(v ?? "").replace(/\r/g, "")));
       row = [];
       continue;
     }
+
     field += ch;
   }
+  // last
   if (field.length || row.length) {
     row.push(field);
-    rows.push(row.map(v => (v ?? "").replace(/\r/g,"")));
+    rows.push(row.map(v => String(v ?? "").replace(/\r/g, "")));
   }
   return rows;
 }
 
+async function loadCsvRows(url) {
+  const text = await fetchText(url);
+  return parseCsv(text);
+}
+
 /* =========================
-   시간/상태
+   normalize / number / date parse
 ========================= */
-function parseKoreanTime(s) {
+function norm(v) {
+  return String(v ?? "").replace(/\r/g, "").trim();
+}
+
+function toNum(v) {
+  const s = String(v ?? "")
+    .replace(/,/g, "")
+    .replace(/[^\d.-]/g, "")
+    .trim();
+  if (!s) return 0;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// 날짜 문자열 -> YYYY-MM-DD (가능한 만큼 대응)
+function toYMD(s) {
   s = norm(s);
-  if (!s) return null;
+  if (!s) return "";
 
-  let m = s.match(/(\d{1,2})\s*:\s*(\d{1,2})/);
-  if (m) return { h:Number(m[1]), m:Number(m[2]) };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-  m = s.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?/);
-  if (m) return { h:Number(m[1]), m:Number(m[2] ?? 0) };
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
 
-  m = s.match(/^(\d{1,2})$/);
-  if (m) return { h:Number(m[1]), m:0 };
+  m = s.match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
 
-  return null;
+  m = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+
+  m = s.match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (m) {
+    const year = getKRYMD(0).slice(0,4);
+    return `${year}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  }
+  return s;
 }
 
-function getNowKSTMinutes() {
-  const parts = new Intl.DateTimeFormat("ko-KR", {
-    timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", hour12:false
-  }).formatToParts(new Date());
+/* =========================
+   출고요약(당일) - sap_doc
+   - 인보이스 A(0)
+   - 출고일 D(3)  (오늘만)
+   - 국가 E(4)
+   - 컨테이너 J(9)
+   - 상차위치 Q(16)
+   - 상차시간 T(19)
+   - 상태: 현재시간 vs 상차시간 (상차시간+2시간=완료)
+   - 정렬: 20 -> 40 -> LCL, 그 다음 시간 오름차순
+========================= */
 
-  const hh = Number(parts.find(p => p.type==="hour")?.value ?? 0);
-  const mm = Number(parts.find(p => p.type==="minute")?.value ?? 0);
-  return hh*60 + mm;
+// 컨테이너 순서: 20 / 40 / LCL / 기타
+function contRank(v) {
+  const s = norm(v).toUpperCase();
+  const n = s.replace(/[^0-9]/g, "");
+  if (n.startsWith("20")) return 1;
+  if (n.startsWith("40")) return 2;
+  if (s.includes("LCL")) return 3;
+  return 9;
 }
 
-function getStatusByTime(planTimeStr) {
-  const t = parseKoreanTime(planTimeStr);
-  if (!t) return "미정";
-  const plan = t.h*60 + t.m;
-  const now = getNowKSTMinutes();
+function timeToMin(v) {
+  const s = norm(v);
+  if (!s) return 9999;
 
-  if (now < plan) return "상차대기";
-  if (now <= plan + 10) return "상차중";
+  // "07시", "07:10", "07시10분" 등
+  let m = s.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
+  if (!m) return 9999;
+  const hh = Number(m[1]);
+  const mm = Number(m[2] ?? 0);
+  return hh * 60 + mm;
+}
+
+function getStatusByTime(schedTimeStr) {
+  const tmin = timeToMin(schedTimeStr);
+  if (tmin >= 9999) return "-";
+
+  const nowHM = nowKST_HM(); // "07:10"
+  const nowMin = timeToMin(nowHM);
+
+  if (nowMin < tmin) return "상차대기";
+  if (nowMin >= tmin && nowMin < tmin + 120) return "상차중";
   return "상차완료";
 }
 
-function contRank(v) {
-  const s = norm(v).toUpperCase();
-  if (s.includes("20")) return 0;
-  if (s.includes("40")) return 1;
-  if (s.includes("LCL")) return 2;
-  return 9;
-}
-function timeToMin(v) {
-  const t = parseKoreanTime(v);
-  if (!t) return 9999;
-  return t.h*60 + t.m;
-}
-
-/* ============================================================
-   1) 출고 누계 (올해 전체) - daily
-   tbody id="ship_total_tbody"
-   - 날짜 A(0) 기준 올해만
-   - I(8), J(9), L(11)
-============================================================ */
-async function renderShipTotalAllYear() {
-  const text = await fetchText(URL_DAILY);
-  const rows = parseCsv(text);
-
-  const COL_DATE = 0; // A
-  const COL_20 = 8;   // I
-  const COL_40 = 9;   // J
-  const COL_LCL = 11; // L
-
-  const year = getKRY();
-  let s20=0, s40=0, sl=0;
-
-  for (const r of rows) {
-    const d = toYMD(r?.[COL_DATE]);
-    if (!d || d.includes("날짜") || d==="A") continue;
-    if (d.slice(0,4) !== year) continue;
-
-    s20 += toNum(r?.[COL_20]);
-    s40 += toNum(r?.[COL_40]);
-    sl  += toNum(r?.[COL_LCL]);
-  }
-
-  const total = s20+s40+sl;
-
-  const tb = $("ship_total_tbody");
-  if (!tb) return;
-
-  tb.innerHTML = `
-    <tr>
-      <td class="cut">전체</td>
-      <td class="num">${fmt.format(s20)}</td>
-      <td class="num">${fmt.format(s40)}</td>
-      <td class="num">${fmt.format(sl)}</td>
-      <td class="num">${fmt.format(total)}</td>
-    </tr>
-  `;
-}
-
-/* ============================================================
-   2) 출고 요약 (오늘, 전체) - sap_doc
-   tbody id="ship_today_tbody"
-   - 오늘 날짜 필터: 기본 D(3) 사용 + "자동탐색" 보정
-   - P열(15): 수출 작업의뢰서만 (공백 제거 후 포함)
-   - 인보이스 A(0), 국가 E(4), 컨테이너 J(9),
-     상차위치 Q(16), 상차시간 T(19)
-   - 정렬: 20 → 40 → LCL, 시간 오름차순
-============================================================ */
 async function renderShipTodayAll() {
-  const text = await fetchText(URL_SAP_DOC);
-  const rows = parseCsv(text);
-
+  const rows = await loadCsvRows(URL_SAP_DOC);
   const today = getKRYMD(0);
 
   const COL_INV = 0;        // A
-  const COL_SHIP_DATE = 3;  // ✅ D (고정)
+  const COL_SHIP_DATE = 3;  // D
   const COL_COUNTRY = 4;    // E
   const COL_CONT = 9;       // J
-  const COL_KIND = 15;      // P
   const COL_LOC = 16;       // Q
   const COL_TIME = 19;      // T
 
@@ -226,21 +225,20 @@ async function renderShipTodayAll() {
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
     if (shipDate !== today) continue;
 
-
     const country = norm(r?.[COL_COUNTRY]);
     const cont = norm(r?.[COL_CONT]);
     const loc = norm(r?.[COL_LOC]);
     const time = norm(r?.[COL_TIME]);
-    const status = getStatusByTime(time); // 너가 만든 +2시간 로직
+    const status = getStatusByTime(time);
 
     data.push({
       inv, country, cont, loc, time, status,
-      _rank: contRank(cont),      // 20/40/LCL 순서
-      _tmin: timeToMin(time)      // 시간 오름차순
+      _rank: contRank(cont),
+      _tmin: timeToMin(time),
     });
   }
 
-  data.sort((a,b) => (a._rank - b._rank) || (a._tmin - b._tmin));
+  data.sort((a, b) => (a._rank - b._rank) || (a._tmin - b._tmin));
 
   const tb = $("ship_today_tbody");
   if (!tb) return;
@@ -252,171 +250,440 @@ async function renderShipTodayAll() {
 
   tb.innerHTML = data.map(x => {
     const isLoading = x.status === "상차중";
-    const rowCls = isLoading ? "bg-yellow-50" : "";
-    const boldCls = isLoading ? "font-extrabold" : "";
 
+    const rowCls = isLoading ? "row-loading" : "";
     const stCls =
-      x.status === "상차중" ? "text-amber-700 font-extrabold" :
-      x.status === "상차대기" ? "text-slate-600 font-extrabold" :
-      "text-emerald-700 font-extrabold";
+      x.status === "상차중" ? "st-loading" :
+      x.status === "상차대기" ? "st-wait" :
+      x.status === "상차완료" ? "st-done" :
+      "st-wait";
 
     return `
       <tr class="${rowCls}">
-        <td class="cut ${boldCls}">${x.inv}</td>
-        <td class="cut ${boldCls}">${x.country || "-"}</td>
-        <td class="cut ${boldCls}">${x.cont || "-"}</td>
-        <td class="cut ${boldCls}">${x.loc || "-"}</td>
-        <td class="cut ${boldCls}">${x.time || "-"}</td>
+        <td class="cut">${x.inv}</td>
+        <td class="cut">${x.country || "-"}</td>
+        <td class="cut">${x.cont || "-"}</td>
+        <td class="cut">${x.loc || "-"}</td>
+        <td class="cut">${x.time || "-"}</td>
         <td class="cut ${stCls}">${x.status}</td>
       </tr>
     `;
   }).join("");
 }
 
+/* =========================
+   daily 기반
+   - 출고누계(전체): I(8), J(9), L(11) 합
+   - 월별출고누계: A(0) 날짜 -> 월 그룹 (현재연도 1~12 정렬)
+   - 출고정보 7일: 오늘~미래6일(총 7일) 날짜별 합
+========================= */
 
-/* ============================================================
-   3) 월별 출고 누계 (올해 1~12월) - daily
-   tbody id="ship_monthly_tbody"
-============================================================ */
-async function renderShipMonthlyYearJanToDec() {
-  const text = await fetchText(URL_DAILY);
-  const rows = parseCsv(text);
+async function renderShipTotalAll() {
+  const rows = await loadCsvRows(URL_DAILY);
+
+  const COL_20 = 8;  // I
+  const COL_40 = 9;  // J
+  const COL_LCL = 11;// L
+
+  let s20 = 0, s40 = 0, sL = 0;
+
+  for (const r of rows) {
+    // 헤더/빈행 방지: 숫자 합만
+    s20 += toNum(r?.[COL_20]);
+    s40 += toNum(r?.[COL_40]);
+    sL  += toNum(r?.[COL_LCL]);
+  }
+
+  const tb = $("ship_total_tbody");
+  if (!tb) return;
+
+  const sum = s20 + s40 + sL;
+
+  tb.innerHTML = `
+    <tr>
+      <td class="cut">전체</td>
+      <td>${fmtKR.format(s20)}</td>
+      <td>${fmtKR.format(s40)}</td>
+      <td>${fmtKR.format(sL)}</td>
+      <td>${fmtKR.format(sum)}</td>
+    </tr>
+  `;
+}
+
+async function renderShipMonthly12() {
+  const rows = await loadCsvRows(URL_DAILY);
 
   const COL_DATE = 0; // A
   const COL_20 = 8;   // I
   const COL_40 = 9;   // J
   const COL_LCL = 11; // L
 
-  const year = getKRY();
-  const map = new Map(); // "01".."12" -> sums
+  const year = getKRYMD(0).slice(0, 4);
+  const map = new Map(); // "01" -> {20,40,lcl}
 
-  for (let m=1; m<=12; m++){
-    const mm = String(m).padStart(2,"0");
-    map.set(mm, { pt20:0, pt40:0, lcl:0 });
+  for (let m = 1; m <= 12; m++) {
+    map.set(String(m).padStart(2, "0"), { s20: 0, s40: 0, sL: 0 });
   }
 
   for (const r of rows) {
     const d = toYMD(r?.[COL_DATE]);
-    if (!d || d.includes("날짜") || d==="A") continue;
-    if (d.slice(0,4) !== year) continue;
+    if (!d || d.length < 10) continue;
+    if (!d.startsWith(year + "-")) continue;
 
-    const mm = d.slice(5,7);
-    const o = map.get(mm);
-    if (!o) continue;
+    const mm = d.slice(5, 7);
+    if (!map.has(mm)) continue;
 
-    o.pt20 += toNum(r?.[COL_20]);
-    o.pt40 += toNum(r?.[COL_40]);
-    o.lcl  += toNum(r?.[COL_LCL]);
+    const obj = map.get(mm);
+    obj.s20 += toNum(r?.[COL_20]);
+    obj.s40 += toNum(r?.[COL_40]);
+    obj.sL  += toNum(r?.[COL_LCL]);
   }
 
   const tb = $("ship_monthly_tbody");
   if (!tb) return;
 
-  tb.innerHTML = Array.from(map.entries()).map(([mm, o]) => {
-    const total = o.pt20 + o.pt40 + o.lcl;
-    return `
+  const html = [];
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, "0");
+    const v = map.get(mm);
+    const sum = v.s20 + v.s40 + v.sL;
+    html.push(`
       <tr>
-        <td class="cut">${Number(mm)}월</td>
-        <td class="num">${fmt.format(o.pt20)}</td>
-        <td class="num">${fmt.format(o.pt40)}</td>
-        <td class="num">${fmt.format(o.lcl)}</td>
-        <td class="num">${fmt.format(total)}</td>
+        <td class="cut">${m}월</td>
+        <td>${fmtKR.format(v.s20)}</td>
+        <td>${fmtKR.format(v.s40)}</td>
+        <td>${fmtKR.format(v.sL)}</td>
+        <td>${fmtKR.format(sum)}</td>
       </tr>
-    `;
-  }).join("");
+    `);
+  }
+
+  tb.innerHTML = html.join("");
 }
 
-/* ============================================================
-   4) 출고정보 (오늘 ~ 미래 6일, 총 7일) - daily
-   tbody id="ship_7days_tbody"
-============================================================ */
-async function renderShip7DaysFuture() {
-  const text = await fetchText(URL_DAILY);
-  const rows = parseCsv(text);
+async function renderShipFuture7Days() {
+  const rows = await loadCsvRows(URL_DAILY);
 
   const COL_DATE = 0; // A
   const COL_20 = 8;   // I
   const COL_40 = 9;   // J
   const COL_LCL = 11; // L
 
+  // 오늘~미래6일
   const days = [];
-  for (let i=0; i<7; i++) days.push(getKRYMD(i));
+  for (let i = 0; i <= 6; i++) days.push(getKRYMD(i));
+  const setDays = new Set(days);
 
   const map = new Map();
-  for (const d of days) map.set(d, { pt20:0, pt40:0, lcl:0 });
+  for (const d of days) map.set(d, { s20:0, s40:0, sL:0 });
 
   for (const r of rows) {
     const d = toYMD(r?.[COL_DATE]);
-    if (!d || d.includes("날짜") || d==="A") continue;
-    if (!map.has(d)) continue;
+    if (!setDays.has(d)) continue;
 
-    const o = map.get(d);
-    o.pt20 += toNum(r?.[COL_20]);
-    o.pt40 += toNum(r?.[COL_40]);
-    o.lcl  += toNum(r?.[COL_LCL]);
+    const obj = map.get(d);
+    obj.s20 += toNum(r?.[COL_20]);
+    obj.s40 += toNum(r?.[COL_40]);
+    obj.sL  += toNum(r?.[COL_LCL]);
   }
 
   const tb = $("ship_7days_tbody");
   if (!tb) return;
 
   tb.innerHTML = days.map(d => {
-    const o = map.get(d) || { pt20:0, pt40:0, lcl:0 };
-    const total = o.pt20 + o.pt40 + o.lcl;
-    const label = `${d.slice(5,7)}-${d.slice(8,10)}`; // MM-DD
-
+    const v = map.get(d);
+    const sum = v.s20 + v.s40 + v.sL;
     return `
       <tr>
-        <td class="cut">${label}</td>
-        <td class="num">${fmt.format(o.pt20)}</td>
-        <td class="num">${fmt.format(o.pt40)}</td>
-        <td class="num">${fmt.format(o.lcl)}</td>
-        <td class="num">${fmt.format(total)}</td>
+        <td class="cut">${d}</td>
+        <td>${fmtKR.format(v.s20)}</td>
+        <td>${fmtKR.format(v.s40)}</td>
+        <td>${fmtKR.format(v.sL)}</td>
+        <td>${fmtKR.format(sum)}</td>
       </tr>
     `;
   }).join("");
 }
 
-/* ============================================================
-   5) 상단바: 시계 + 풀스크린
-============================================================ */
-function initTopBarClockAndFullscreen() {
+/* =========================
+   보수작업
+   - 예상량(sap_item): 날짜 E(4), T(19) 합
+   - 완료(bosu): 날짜 B(1), J(9)="완료", F(5) 합
+   - 잔량 = 예상 - 완료
+========================= */
+
+async function calcBosuExpected(ymTarget) {
+  const rows = await loadCsvRows(URL_SAP_ITEM);
+  const COL_DATE = 4;  // E
+  const COL_VAL  = 19; // T
+  let sum = 0;
+
+  for (const r of rows) {
+    const d = toYMD(r?.[COL_DATE]);
+    if (!d || d.includes("날짜")) continue;
+    if (ymFromYMD(d) !== ymTarget) continue;
+    sum += toNum(r?.[COL_VAL]);
+  }
+  return sum;
+}
+
+async function calcBosuDone(ymTarget) {
+  const rows = await loadCsvRows(URL_BOSU);
+  const COL_DATE = 1;   // B
+  const COL_QTY  = 5;   // F
+  const COL_ST   = 9;   // J
+
+  let sum = 0;
+  for (const r of rows) {
+    const d = toYMD(r?.[COL_DATE]);
+    if (!d || d.includes("날짜")) continue;
+    if (ymFromYMD(d) !== ymTarget) continue;
+
+    const st = norm(r?.[COL_ST]);
+    if (st !== "완료") continue;
+
+    sum += toNum(r?.[COL_QTY]);
+  }
+  return sum;
+}
+
+async function renderBosuMonth() {
+  const ymNow  = ymFromYMD(getKRYMD(0));
+  const ymNext = shiftYM(ymNow, 1);
+
+  const [expNow, doneNow, expNext, doneNext] = await Promise.all([
+    calcBosuExpected(ymNow),
+    calcBosuDone(ymNow),
+    calcBosuExpected(ymNext),
+    calcBosuDone(ymNext),
+  ]);
+
+  const tb = $("bosu_month_tbody");
+  if (!tb) return;
+
+  const remNow  = expNow - doneNow;
+  const remNext = expNext - doneNext;
+
+  tb.innerHTML = `
+    <tr>
+      <td class="cut">${monthLabel(ymNow)}</td>
+      <td>${fmtKR.format(expNow)}</td>
+      <td>${fmtKR.format(doneNow)}</td>
+      <td>${fmtKR.format(remNow)}</td>
+    </tr>
+    <tr>
+      <td class="cut">${monthLabel(ymNext)}</td>
+      <td>${fmtKR.format(expNext)}</td>
+      <td>${fmtKR.format(doneNext)}</td>
+      <td>${fmtKR.format(remNext)}</td>
+    </tr>
+  `;
+}
+
+/* =========================
+   설비 작업(당월/다음달)
+   - daily: 날짜 A(0), 설비작업량 F(5)
+   - 작업일: 해당 월에서 F>0인 날짜 수
+   - 평균: 작업량 / 작업일 (반올림)
+========================= */
+
+async function calcSystemMonth(ymTarget) {
+  const rows = await loadCsvRows(URL_DAILY);
+  const COL_DATE = 0; // A
+  const COL_SYS  = 5; // F
+
+  let sum = 0;
+  const days = new Set();
+
+  for (const r of rows) {
+    const d = toYMD(r?.[COL_DATE]);
+    if (!d || d.length < 10) continue;
+    if (ymFromYMD(d) !== ymTarget) continue;
+
+    const q = toNum(r?.[COL_SYS]);
+    if (q > 0) {
+      sum += q;
+      days.add(d);
+    }
+  }
+
+  const workDays = days.size;
+  const avg = workDays ? Math.round(sum / workDays) : 0;
+  return { sum, workDays, avg };
+}
+
+async function renderSystemMonth() {
+  const ymNow  = ymFromYMD(getKRYMD(0));
+  const ymNext = shiftYM(ymNow, 1);
+
+  const [a, b] = await Promise.all([
+    calcSystemMonth(ymNow),
+    calcSystemMonth(ymNext),
+  ]);
+
+  const tb = $("system_month_tbody");
+  if (!tb) return;
+
+  tb.innerHTML = `
+    <tr>
+      <td class="cut">${monthLabel(ymNow)}</td>
+      <td>${fmtKR.format(a.sum)}</td>
+      <td>${fmtKR.format(a.workDays)}</td>
+      <td>${fmtKR.format(a.avg)}</td>
+    </tr>
+    <tr>
+      <td class="cut">${monthLabel(ymNext)}</td>
+      <td>${fmtKR.format(b.sum)}</td>
+      <td>${fmtKR.format(b.workDays)}</td>
+      <td>${fmtKR.format(b.avg)}</td>
+    </tr>
+  `;
+}
+
+/* =========================
+   작업장별 작업수량(전체누계)
+   - daily:
+     보수A = D(3) 합
+     보수B = E(4) 합
+     설비  = F(5) 합
+     작업일: (D+E+F)>0 인 날짜 수
+     평균: 합/작업일
+========================= */
+
+async function renderWorkplaceTotal() {
+  const rows = await loadCsvRows(URL_DAILY);
+
+  const COL_DATE = 0; // A
+  const COL_A = 3;    // D
+  const COL_B = 4;    // E
+  const COL_S = 5;    // F
+
+  let a=0, b=0, s=0;
+  const days = new Set();
+
+  for (const r of rows) {
+    const d = toYMD(r?.[COL_DATE]);
+    if (!d || d.length < 10) continue;
+
+    const qa = toNum(r?.[COL_A]);
+    const qb = toNum(r?.[COL_B]);
+    const qs = toNum(r?.[COL_S]);
+
+    a += qa;
+    b += qb;
+    s += qs;
+
+    if (qa + qb + qs > 0) days.add(d);
+  }
+
+  const wd = days.size || 1;
+  const all = a+b+s;
+
+  const tb = $("workplace_total_tbody");
+  if (!tb) return;
+
+  tb.innerHTML = `
+    <tr>
+      <td class="cut">보수A</td>
+      <td>${fmtKR.format(a)}</td>
+      <td>${fmtKR.format(Math.round(a/wd))}</td>
+    </tr>
+    <tr>
+      <td class="cut">보수B</td>
+      <td>${fmtKR.format(b)}</td>
+      <td>${fmtKR.format(Math.round(b/wd))}</td>
+    </tr>
+    <tr>
+      <td class="cut">설비</td>
+      <td>${fmtKR.format(s)}</td>
+      <td>${fmtKR.format(Math.round(s/wd))}</td>
+    </tr>
+    <tr>
+      <td class="cut font-extrabold">전체</td>
+      <td class="font-extrabold">${fmtKR.format(all)}</td>
+      <td class="font-extrabold">${fmtKR.format(Math.round(all/wd))}</td>
+    </tr>
+  `;
+}
+
+/* =========================
+   상단바: 시계 / 풀스크린 / 메뉴
+========================= */
+function setupBoardBar() {
   const clockEl = $("boardClock");
+  const updatedEl = $("boardUpdated");
   const fsBtn = $("btnFullscreen");
 
+  // 시계
   const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
-    timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", second:"2-digit"
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
-
-  function tick() {
+  const tick = () => {
     if (clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date());
-  }
+  };
   tick();
   setInterval(tick, 1000);
 
+  // 풀스크린
   if (fsBtn) {
     fsBtn.addEventListener("click", async () => {
       try {
         if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
         else await document.exitFullscreen();
-      } catch(e) {
+      } catch (e) {
         console.warn("fullscreen failed:", e);
       }
     });
   }
+
+  // MENU 드롭다운
+  const btn = $("btnMenu");
+  const panel = $("menuPanel");
+  btn?.addEventListener("click", () => {
+    if (!panel) return;
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+  });
+  document.addEventListener("click", (e) => {
+    if (!panel || !btn) return;
+    if (panel.contains(e.target) || btn.contains(e.target)) return;
+    panel.style.display = "none";
+  });
+
+  // 갱신 시간
+  const setUpdated = () => {
+    if (!updatedEl) return;
+    const t = new Date().toISOString().replace("T"," ").slice(0,19);
+    updatedEl.textContent = t;
+  };
+  setUpdated();
+  return setUpdated;
 }
 
-/* ============================================================
-   실행
-============================================================ */
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    initTopBarClockAndFullscreen();
+/* =========================
+   init
+========================= */
+(async function init() {
+  const setUpdated = setupBoardBar();
 
-    await renderShipTotalAllYear();          // ✅ 올해 누계
-    await renderShipTodayAll();              // ✅ 오늘 출고 요약
-    await renderShipMonthlyYearJanToDec();   // ✅ 올해 1~12월
-    await renderShip7DaysFuture();           // ✅ 오늘~미래6일(7줄)
+  try {
+    // 병렬 로드
+    await Promise.all([
+      renderShipTodayAll(),
+      renderShipTotalAll(),
+      renderShipMonthly12(),
+      renderShipFuture7Days(),
+      renderBosuMonth(),
+      renderSystemMonth(),
+      renderWorkplaceTotal(),
+    ]);
+
+    setUpdated?.();
   } catch (e) {
-    console.error("index.js error:", e);
+    console.error(e);
+    // 최소한 표 하나는 보이게 처리 (원하면 더 상세 오류표시도 가능)
   }
-});
+})();
+
