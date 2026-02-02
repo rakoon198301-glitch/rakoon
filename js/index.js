@@ -226,9 +226,6 @@ async function renderShipTodayAll() {
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
     if (shipDate !== today) continue;
 
-    // ✅ P열 필터: 공백 제거 후 비교(안전)
-    const kindNoSpace = norm(r?.[COL_KIND]).replace(/\s+/g, "");
-    if (!kindNoSpace.includes("수출작업의뢰서")) continue;
 
     const country = norm(r?.[COL_COUNTRY]);
     const cont = norm(r?.[COL_CONT]);
