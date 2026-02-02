@@ -1,7 +1,5 @@
 // js/index.js
-// =====================================================
-// ✅ 공통 유틸 + CSV 로딩
-// =====================================================
+
 const fmtKR = new Intl.NumberFormat("ko-KR");
 
 function $(id){ return document.getElementById(id); }
@@ -26,7 +24,7 @@ function toYMD(v){
   return s;
 }
 
-// ✅ 0이면 '-' 표시
+//  0이면 '-' 표시
 function fmt0(n){
   const v = Number(n || 0);
   return v === 0 ? "-" : fmtKR.format(v);
@@ -42,7 +40,7 @@ async function fetchText(url){
   return await res.text();
 }
 
-// ✅ 따옴표 포함 CSV 파서
+//  따옴표 포함 CSV 파서
 function parseCsv(text){
   const rows = [];
   let row = [];
@@ -115,16 +113,16 @@ function getStatusByTime(shipTime){
   const nowHM = getKSTNowHM();
   const nowMin = timeToMin(nowHM);
 
-  // ✅ 현재시간이 상차시간보다 빠르면 대기
+  //  현재시간이 상차시간보다 빠르면 대기
   if(nowMin < tmin) return "상차대기";
-  // ✅ 현재시간이 상차시간~상차시간+120분 사이는 상차중
+  //  현재시간이 상차시간~상차시간+120분 사이는 상차중
   if(nowMin >= tmin && nowMin < tmin + 120) return "상차중";
-  // ✅ 그 이후는 완료
+  //  그 이후는 완료
   return "상차완료";
 }
 function contRank(cont){
   const c = norm(cont).toUpperCase();
-  // ✅ 컨테이너 정렬: 20 -> 40 -> LCL -> 기타
+  //  컨테이너 정렬: 20 -> 40 -> LCL -> 기타
   if (c === "20") return 1;
   if (c === "40") return 2;
   if (c.includes("LCL")) return 3;
@@ -132,7 +130,7 @@ function contRank(cont){
 }
 
 // =====================================================
-// ✅ CSV URL
+//  CSV URL
 // =====================================================
 const URL_DAILY =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=430924108&single=true&output=csv";
@@ -218,7 +216,7 @@ async function renderShipMonthly(){
     o.slcl += toNum(r?.[COL_LCL]);
   }
 
-  // ✅ 1월~12월 고정 정렬
+  //  1월~12월 고정 정렬
   const html = [];
   for(let m=1;m<=12;m++){
     const o = map.get(m);
@@ -302,8 +300,8 @@ async function renderShipTodayAll(){
   const COL_LOC = 16;     // Q
   const COL_TIME = 19;    // T
 
-  // ✅ 출고일 컬럼 자동탐색(헤더 포함 구조 대비)
-  // 기본 D(3) 기준으로 하되, 샘플에서 today 히트 많은 컬럼 채택
+  //  출고일 컬럼 자동탐색
+  // 기본 D(3) 기준으로 
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 80);
   let bestCol = COL_SHIP_DATE, bestHit = 0;
@@ -340,7 +338,7 @@ async function renderShipTodayAll(){
     });
   }
 
-  // ✅ 컨테이너(20->40->LCL) -> 시간 정렬
+  //  컨테이너(20->40->LCL) -> 시간 정렬
   data.sort((a,b)=> (a._rank - b._rank) || (a._tmin - b._tmin));
 
   if(data.length === 0){
@@ -590,13 +588,13 @@ function getKSTHour() {
   return kst.getHours(); // 0~23
 }
 
-// ✅ 06:00~20:00만 자동갱신 (20시는 포함 X)
+//  06:00~20:00만 자동갱신 (20시는 포함 X)
 function isAutoRefreshTime() {
   const h = getKSTHour();
   return h >= 6 && h < 20;
 }
 
-// ✅ 마지막 갱신 시간 표시 (상단바의 "-" 부분을 찾아서 갱신)
+//  마지막 갱신 시간 표시 (상단바의 "-" 부분을 찾아서 갱신)
 function setLastUpdated() {
   const el = document.querySelector("#boardBar span.font-extrabold.text-sky-700");
   if (!el) return;
@@ -615,7 +613,7 @@ async function refreshAll() {
   _refreshing = true;
 
   try {
-    // ✅ 너 파일에 실제 존재하는 함수들만 호출
+    //  너 파일에 실제 존재하는 함수들만 호출
     await Promise.allSettled([
       renderShipTotal?.(),
       renderShipTodayAll?.(),
@@ -656,13 +654,13 @@ function startAutoRefresh() {
 }
 
 function init() {
-  // ✅ 최초 1회 로딩은 항상 실행 (야간에도 화면은 최신으로 한 번 맞춰줌)
+  //  최초 1회 로딩은 항상 실행 (야간에도 화면은 최신으로 한 번 맞춰줌)
   refreshAll();
 
-  // ✅ 근무시간(06~20)만 30분 갱신
+  //  근무시간(06~20)만 30분 갱신
   startAutoRefresh();
 
-  // ✅ 시간이 06/20 넘어갈 때 타이머 on/off 되도록 5분마다 체크
+  //  시간이 06/20 넘어갈 때 타이머 on/off 되도록 5분마다 체크
   setInterval(startAutoRefresh, 5 * 60 * 1000);
 }
 

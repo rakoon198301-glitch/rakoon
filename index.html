@@ -9,7 +9,7 @@
   <style>
     body { background:#eef1f5; }
 
-    /* 카드 덩치/헤더 간격 줄이기 */
+    /* 카드 /헤더 간격  */
     .card {
       background:#fff;
       border:1px solid #e5e7eb;
@@ -30,7 +30,7 @@
     .sub   { font-size:11px; font-weight:700; color:#64748b; line-height:1.2; margin-top:2px; }
     .tag   { font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; }
 
-    /* ✅ 테이블: 폰트/간격 통일(헤더/본문 동일 크기) */
+    /*  테이블: 폰트/간격  */
     .tbl{
       width:100%;
       border-collapse:collapse;
@@ -140,7 +140,7 @@
 
       <main class="min-w-0">
 
-        <!-- 상단바(그대로 유지) -->
+        <!-- 상단바 -->
         <div id="boardBar" class="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
@@ -173,8 +173,7 @@
         </div>
 
         <!-- =========================
-             ✅ 4열 레이아웃 (상차 | 출고좌 | 출고중 | 우측미니)
-             - gap/space-y 줄여서 “덩치” 축소
+             4열 레이아웃 
         ========================== -->
         <section class="grid grid-cols-12 gap-3">
 
@@ -228,7 +227,7 @@
 
           </div>
 
-          <!-- LEFT: 출고 누계/요약 (xl:3) -->
+          <!-- LEFT: 출고 누계/요약 (xl:4) -->
           <div class="col-span-12 xl:col-span-4 space-y-3"> 
 
            
@@ -275,7 +274,7 @@
               <div class="card-h">
                 <div>
                   <div class="title">출고정보 (오늘기준 7일 내역)</div>
-                  <div class="sub">daily · 오늘~미래6일</div>
+                  <div class="sub">------</div>
                 </div>
                 <div class="tag">7일</div>
               </div>
@@ -307,7 +306,7 @@
               
           </div>
 
-          <!-- MIDDLE: 월별/7일 (xl:4) -->
+          <!-- MIDDLE: 월별/7일 (xl:3) -->
           <div class="col-span-12 xl:col-span-3 space-y-3">  
             
            <!-- 출고 누계 -->
@@ -344,12 +343,12 @@
               </div>
             </div>
 
-            <!-- 월별 출고 누계 -->
+            <!-- 월별 출고  -->
             <div class="card">
               <div class="card-h">
                 <div>
                   <div class="title">월별 출고 누계</div>
-                  <div class="sub">daily · 12개월</div>
+                  <div class="sub">------</div>
                 </div>
                 <div class="tag">누계</div>
               </div>
@@ -383,7 +382,7 @@
               <div class="card-h">
                 <div>
                   <div class="title">작업장별 작업수량</div>
-                  <div class="sub">daily · 전체누계</div>
+                  <div class="sub">------</div>
                 </div>
                 <div class="tag">전체누계</div>
               </div>
@@ -479,7 +478,7 @@
             </div>
 
           
-            <!-- ✅ 재고 합계 (wms) -->
+            <!-- 재고 합계 (wms) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -501,7 +500,7 @@
   </div>
 
   <!-- =========================
-        JS: 사이드바 + 시계 + 풀스크린 (그대로)
+        JS: 사이드바 + 시계 + 풀스크린 
   ========================== -->
   <script>
     const sidebar = document.getElementById("sidebar");
