@@ -210,28 +210,12 @@ async function renderShipTodayAll() {
   const today = getKRYMD(0);
 
   const COL_INV = 0;        // A
+  const COL_SHIP_DATE = 3;  // ✅ D (고정)
   const COL_COUNTRY = 4;    // E
   const COL_CONT = 9;       // J
   const COL_KIND = 15;      // P
   const COL_LOC = 16;       // Q
   const COL_TIME = 19;      // T
-
-  // ✅ 출고일 컬럼: 기본 D(3)
-  let COL_SHIP_DATE = 3;
-
-  // ✅ 혹시 D가 아닐 경우 대비: "오늘 날짜"가 들어있는 컬럼을 자동탐색 (B~F 정도만)
-  // (데이터가 많아도 1회만 판단)
-  const sample = rows.slice(0, 80);
-  let bestCol = COL_SHIP_DATE, bestHit = 0;
-  for (const c of [1,2,3,4,5]) {
-    let hit = 0;
-    for (const r of sample) {
-      const d = toYMD(r?.[c]);
-      if (d === today) hit++;
-    }
-    if (hit > bestHit) { bestHit = hit; bestCol = c; }
-  }
-  if (bestHit > 0) COL_SHIP_DATE = bestCol;
 
   const data = [];
 
@@ -242,20 +226,20 @@ async function renderShipTodayAll() {
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
     if (shipDate !== today) continue;
 
-    // ✅ P열 필터 (공백 제거하고 포함 검사)
-    const kind = normNoSpace(r?.[COL_KIND]);
-    if (!kind.includes("수출작업의뢰서")) continue;
+    // ✅ P열 필터: 공백 제거 후 비교(안전)
+    const kindNoSpace = norm(r?.[COL_KIND]).replace(/\s+/g, "");
+    if (!kindNoSpace.includes("수출작업의뢰서")) continue;
 
     const country = norm(r?.[COL_COUNTRY]);
     const cont = norm(r?.[COL_CONT]);
     const loc = norm(r?.[COL_LOC]);
     const time = norm(r?.[COL_TIME]);
-    const status = getStatusByTime(time);
+    const status = getStatusByTime(time); // 너가 만든 +2시간 로직
 
     data.push({
       inv, country, cont, loc, time, status,
-      _rank: contRank(cont),
-      _tmin: timeToMin(time)
+      _rank: contRank(cont),      // 20/40/LCL 순서
+      _tmin: timeToMin(time)      // 시간 오름차순
     });
   }
 
@@ -291,6 +275,7 @@ async function renderShipTodayAll() {
     `;
   }).join("");
 }
+
 
 /* ============================================================
    3) 월별 출고 누계 (올해 1~12월) - daily
