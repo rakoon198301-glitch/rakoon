@@ -746,12 +746,7 @@ async function renderWorkplaceTotal() {
 }
 
 
-  // ✅ (혹시 카드 KV 구조면) 라벨 기반으로도 세팅 시도
-  // 라벨이 정확히 안 맞으면 그냥 무시됨
-  setKvValue(card, "보수A", sA);
-  setKvValue(card, "보수B", sB);
-  setKvValue(card, "설비", sS);
-  setKvValue(card, "전체", sAll);
+
 
 
 /* =========================
