@@ -669,76 +669,82 @@ async function renderSystemCards() {
    - 평균  : (합계 / 작업일)  ※ 작업일=해당 구분 값이 0보다 큰 날짜 수
 ===================================================== */
 async function renderWorkplaceTotal() {
-  const tb = $("workplace_total_tbody");
-  const card =
-    pickCard("작업장별 작업수량", "전체누계") ||
-    pickCard("작업장별 작업수량", "전체");
+  const tb = document.getElementById("workplace_total_tbody");
+  if (!tb) return;
 
   const text = await fetchText(URL_DAILY);
   const rows = parseCsv(text);
+  if (!rows || rows.length === 0) {
+    tb.innerHTML = `<tr><td colspan="3" class="muted">데이터 없음</td></tr>`;
+    return;
+  }
 
-  const COL_DATE = 0; // A
-  const COL_A = 3;    // D (보수A)
-  const COL_B = 4;    // E (보수B)
-  const COL_S = 5;    // F (설비)
+  // ✅ 헤더 기반 컬럼 자동 탐색
+  const header = (rows[0] || []).map(v => (v || "").toString().trim());
+
+  const idxDate = 0; // A: 날짜
+  let idxA = header.findIndex(h => h.includes("보수A"));
+  let idxB = header.findIndex(h => h.includes("보수B"));
+  let idxS = header.findIndex(h => h.includes("설비"));
+
+  // ✅ fallback: D/E/F
+  if (idxA < 0) idxA = 3;
+  if (idxB < 0) idxB = 4;
+  if (idxS < 0) idxS = 5;
 
   let sA = 0, sB = 0, sS = 0;
+  const daySet = new Set(); // ✅ "진짜 작업한 날"만 넣음
 
-  // ✅ 작업일(해당 값이 있는 날) 카운트
-  const daysA = new Set();
-  const daysB = new Set();
-  const daysS = new Set();
-  const daysAll = new Set();
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
 
-  for (const r of rows) {
-    const d = toYMD(r?.[COL_DATE]);
-    if (!d || d.includes("날짜")) continue;     // 헤더/빈값 스킵
+    const d = toYMD(r?.[idxDate]);
+    if (!d || d.includes("날짜")) continue;
 
-    // ✅ 오늘/기간 필터 절대 없음 = 전체 누적
-    const a = toNum(r?.[COL_A]);
-    const b = toNum(r?.[COL_B]);
-    const s = toNum(r?.[COL_S]);
+    const a = toNum(r?.[idxA]);
+    const b = toNum(r?.[idxB]);
+    const s = toNum(r?.[idxS]);
 
     sA += a; sB += b; sS += s;
 
-    if (a > 0) daysA.add(d);
-    if (b > 0) daysB.add(d);
-    if (s > 0) daysS.add(d);
-    if (a > 0 || b > 0 || s > 0) daysAll.add(d);
+    // ✅ 진짜 작업한 날만 카운트: D+E+F > 0
+    if ((a + b + s) > 0) daySet.add(d);
   }
 
-  const avgA = daysA.size ? (sA / daysA.size) : 0;
-  const avgB = daysB.size ? (sB / daysB.size) : 0;
-  const avgS = daysS.size ? (sS / daysS.size) : 0;
+  const workDays = daySet.size || 0;
 
   const sAll = sA + sB + sS;
-  const avgAll = daysAll.size ? (sAll / daysAll.size) : 0;
 
-  // ✅ tbody 있으면 표에 출력
-  if (tb) {
-    tb.innerHTML = `
-      <tr>
-        <td class="cut">보수A</td>
-        <td class="num">${fmtKR.format(sA)}</td>
-        <td class="num">${fmtKR.format(Math.round(avgA))}</td>
-      </tr>
-      <tr>
-        <td class="cut">보수B</td>
-        <td class="num">${fmtKR.format(sB)}</td>
-        <td class="num">${fmtKR.format(Math.round(avgB))}</td>
-      </tr>
-      <tr>
-        <td class="cut">설비</td>
-        <td class="num">${fmtKR.format(sS)}</td>
-        <td class="num">${fmtKR.format(Math.round(avgS))}</td>
-      </tr>
-      <tr>
-        <td class="cut font-extrabold">전체</td>
-        <td class="num font-extrabold">${fmtKR.format(sAll)}</td>
-        <td class="num font-extrabold">${fmtKR.format(Math.round(avgAll))}</td>
-      </tr>
-    `;
-  }
+  // ✅ 평균 = 합계 / 작업일수(진짜 작업한 날)
+  const avgA = workDays ? (sA / workDays) : 0;
+  const avgB = workDays ? (sB / workDays) : 0;
+  const avgS = workDays ? (sS / workDays) : 0;
+  const avgAll = workDays ? (sAll / workDays) : 0;
+
+  tb.innerHTML = `
+    <tr>
+      <td class="cut">보수A</td>
+      <td class="num">${fmtKR.format(sA)}</td>
+      <td class="num">${fmtKR.format(Math.round(avgA))}</td>
+    </tr>
+    <tr>
+      <td class="cut">보수B</td>
+      <td class="num">${fmtKR.format(sB)}</td>
+      <td class="num">${fmtKR.format(Math.round(avgB))}</td>
+    </tr>
+    <tr>
+      <td class="cut">설비</td>
+      <td class="num">${fmtKR.format(sS)}</td>
+      <td class="num">${fmtKR.format(Math.round(avgS))}</td>
+    </tr>
+    <tr>
+      <td class="cut font-extrabold">전체</td>
+      <td class="num font-extrabold">${fmtKR.format(sAll)}</td>
+      <td class="num font-extrabold">${fmtKR.format(Math.round(avgAll))}</td>
+    </tr>
+  `;
+}
+
 
   // ✅ (혹시 카드 KV 구조면) 라벨 기반으로도 세팅 시도
   // 라벨이 정확히 안 맞으면 그냥 무시됨
@@ -746,7 +752,6 @@ async function renderWorkplaceTotal() {
   setKvValue(card, "보수B", sB);
   setKvValue(card, "설비", sS);
   setKvValue(card, "전체", sAll);
-}
 
 
 /* =========================
