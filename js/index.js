@@ -663,43 +663,66 @@ async function renderSystemCards() {
 
 /* =====================================================
    7) 작업장별 작업수량 (전체 누계) - daily (✅ 전체 누적)
-   - 보수A: D열 전체합
-   - 보수B: E열 전체합
-   - 설비 : F열 전체합
-   - 평균  : (합계 / 작업일)  ※ 작업일=해당 구분 값이 0보다 큰 날짜 수
+   - 보수A: D열(A) 전체합
+   - 보수B: E열(B) 전체합
+   - 설비 : F열(설비) 전체합
+   - 평균  : (합계 / 작업일수)
+     ※ 작업일수 = 해당 구분 값이 0보다 큰 날짜 수
 ===================================================== */
 async function renderWorkplaceTotal() {
   const tb = document.getElementById("workplace_total_tbody");
   if (!tb) return;
 
-  const text = await fetchText(URL_DAILY);
-  const rows = parseCsv(text);
-  if (!rows || rows.length === 0) {
+  let text, rows;
+  try {
+    text = await fetchText(URL_DAILY);
+    rows = parseCsv(text);
+  } catch (e) {
+    console.error("workplace_total fetch/parse error:", e);
+    tb.innerHTML = `<tr><td colspan="3" class="muted">CSV 로딩 실패</td></tr>`;
+    return;
+  }
+
+  if (!rows || rows.length < 3) {
     tb.innerHTML = `<tr><td colspan="3" class="muted">데이터 없음</td></tr>`;
     return;
   }
 
-  // ✅ 헤더 기반 컬럼 자동 탐색
-  const header = (rows[0] || []).map(v => (v || "").toString().trim());
+  // ✅ 1) "날짜" 헤더 행 찾기 (스샷처럼 제목줄이 따로 있는 구조 대응)
+  const headerIdx = rows.findIndex(r => norm(r?.[0]) === "날짜");
+  if (headerIdx < 0) {
+    console.warn("header row not found. first col sample:", rows.slice(0, 5).map(r => r?.[0]));
+    tb.innerHTML = `<tr><td colspan="3" class="muted">헤더(날짜) 행을 못찾음</td></tr>`;
+    return;
+  }
 
-  const idxDate = 0; // A: 날짜
-  let idxA = header.findIndex(h => h.includes("보수A"));
-  let idxB = header.findIndex(h => h.includes("보수B"));
+  const header = rows[headerIdx].map(v => norm(v));
+
+  const idxDate = 0; // "날짜" 는 A열
+  // ✅ 2) 헤더에서 A/B/설비 컬럼 위치 찾기 (없으면 D/E/F로 fallback)
+  let idxA = header.findIndex(h => h === "A");
+  let idxB = header.findIndex(h => h === "B");
   let idxS = header.findIndex(h => h.includes("설비"));
 
-  // ✅ fallback: D/E/F
-  if (idxA < 0) idxA = 3;
-  if (idxB < 0) idxB = 4;
-  if (idxS < 0) idxS = 5;
+  if (idxA < 0) idxA = 3; // D
+  if (idxB < 0) idxB = 4; // E
+  if (idxS < 0) idxS = 5; // F
 
   let sA = 0, sB = 0, sS = 0;
-  const daySet = new Set(); // ✅ "진짜 작업한 날"만 넣음
 
-  for (let i = 1; i < rows.length; i++) {
+  // ✅ 구분별 "진짜 작업한 날" 카운트
+  const dA = new Set();
+  const dB = new Set();
+  const dS = new Set();
+  const dAll = new Set(); // 전체(D+E+F>0)
+
+  // ✅ 3) 데이터는 헤더 다음 줄부터
+  for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
+    if (!r || r.length < 2) continue;
 
     const d = toYMD(r?.[idxDate]);
-    if (!d || d.includes("날짜")) continue;
+    if (!d) continue;
 
     const a = toNum(r?.[idxA]);
     const b = toNum(r?.[idxB]);
@@ -707,43 +730,49 @@ async function renderWorkplaceTotal() {
 
     sA += a; sB += b; sS += s;
 
-    // ✅ 진짜 작업한 날만 카운트: D+E+F > 0
-    if ((a + b + s) > 0) daySet.add(d);
+    if (a > 0) dA.add(d);
+    if (b > 0) dB.add(d);
+    if (s > 0) dS.add(d);
+    if ((a + b + s) > 0) dAll.add(d);
   }
-
-  const workDays = daySet.size || 0;
 
   const sAll = sA + sB + sS;
 
-  // ✅ 평균 = 합계 / 작업일수(진짜 작업한 날)
-  const avgA = workDays ? (sA / workDays) : 0;
-  const avgB = workDays ? (sB / workDays) : 0;
-  const avgS = workDays ? (sS / workDays) : 0;
-  const avgAll = workDays ? (sAll / workDays) : 0;
+  // ✅ 평균 = 합계 / (해당 구분 작업일수)
+  const avgA = dA.size ? (sA / dA.size) : 0;
+  const avgB = dB.size ? (sB / dB.size) : 0;
+  const avgS = dS.size ? (sS / dS.size) : 0;
+  const avgAll = dAll.size ? (sAll / dAll.size) : 0;
+
+  // fmtKR 없을 수도 있으니 안전하게 준비
+  const _fmt = (typeof fmtKR !== "undefined")
+    ? fmtKR
+    : new Intl.NumberFormat("ko-KR");
 
   tb.innerHTML = `
     <tr>
       <td class="cut">보수A</td>
-      <td class="num">${fmtKR.format(sA)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgA))}</td>
+      <td class="num">${_fmt.format(sA)}</td>
+      <td class="num">${_fmt.format(Math.round(avgA))}</td>
     </tr>
     <tr>
       <td class="cut">보수B</td>
-      <td class="num">${fmtKR.format(sB)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgB))}</td>
+      <td class="num">${_fmt.format(sB)}</td>
+      <td class="num">${_fmt.format(Math.round(avgB))}</td>
     </tr>
     <tr>
       <td class="cut">설비</td>
-      <td class="num">${fmtKR.format(sS)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgS))}</td>
+      <td class="num">${_fmt.format(sS)}</td>
+      <td class="num">${_fmt.format(Math.round(avgS))}</td>
     </tr>
     <tr>
       <td class="cut font-extrabold">전체</td>
-      <td class="num font-extrabold">${fmtKR.format(sAll)}</td>
-      <td class="num font-extrabold">${fmtKR.format(Math.round(avgAll))}</td>
+      <td class="num font-extrabold">${_fmt.format(sAll)}</td>
+      <td class="num font-extrabold">${_fmt.format(Math.round(avgAll))}</td>
     </tr>
   `;
 }
+
 
 
 
