@@ -3,17 +3,9 @@
 // ✅ NKG Dashboard (HTML 무수정) - index.js 교체본
 // - 출고 누계(전체): daily CSV 전체 합계 → #ship_total_tbody
 // - 출고 요약(당일): sap_doc 오늘 날짜 전체 → #ship_today_tbody
-//   · 컨테이너 정렬: 20 → 40 → LCL
-//   · 동일 컨테이너 내 시간 오름차순
-//   · 상태: (현재KST 기준)
-//       - 현재 < 상차시간  => 상차대기
-//       - 상차시간 <= 현재 < 상차시간+2h => 상차중 (행 강조)
-//       - 현재 >= 상차시간+2h => 상차완료
 // - 월별 출고 누계(1~12월): daily CSV 월별 합계 → #ship_monthly_tbody
 // - 출고정보(오늘+미래6일=7일): daily CSV 날짜별 합계 → #ship_7days_tbody
-// - 보수(당월/다음달): 예상(sap_item T합) / 완료(bosu: J=완료, F합) / 잔량 → #bosu_month_tbody
-// - 설비(당월/다음달): daily F합 / 작업일 / 평균 → #system_month_tbody
-// - 작업장별 전체누계: daily D/E/F합 & 평균 → #workplace_total_tbody
+// - 보수/설비/작업장별: tbody 있으면 tbody 채움, 없으면 카드 KV 라벨 찾아 숫자 채움
 // =====================================================
 
 /* =========================
@@ -70,7 +62,6 @@ function getKRYMD(offsetDays = 0) {
   return KST_YMD_FMT.format(new Date(Date.now() + offsetDays * 86400_000));
 }
 function getKSTNowParts() {
-  // KST 기준 현재 시/분
   const parts = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
@@ -130,7 +121,6 @@ function timeToMin(timeStr) {
   const s = norm(timeStr);
   if (!s || s === "-") return 99999;
 
-  // "07시", "7시", "07:10", "7:10", "0710" 등 대응
   let m = s.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
   if (m) {
     const hh = Number(m[1]);
@@ -138,7 +128,6 @@ function timeToMin(timeStr) {
     if (Number.isFinite(hh) && Number.isFinite(mm)) return hh * 60 + mm;
   }
 
-  // "0700" 같은 케이스
   m = s.match(/^(\d{1,2})(\d{2})$/);
   if (m) {
     const hh = Number(m[1]);
@@ -146,7 +135,6 @@ function timeToMin(timeStr) {
     return hh * 60 + mm;
   }
 
-  // "07" 만 있으면 정시
   m = s.match(/^(\d{1,2})$/);
   if (m) return Number(m[1]) * 60;
 
@@ -168,7 +156,6 @@ function contRank(contStr) {
   const head2 = s.replace(/[^0-9]/g, "").slice(0, 2);
   if (head2 === "20") return 0;
   if (head2 === "40") return 1;
-  // LCL 또는 그 외
   if (s.includes("LCL")) return 2;
   return 3;
 }
@@ -220,7 +207,6 @@ function parseCsv(text) {
     field += ch;
   }
 
-  // last line
   if (field.length > 0 || row.length > 0) {
     row.push(field);
     rows.push(row.map((v) => (v ?? "").replace(/\r/g, "")));
@@ -230,10 +216,50 @@ function parseCsv(text) {
 }
 
 /* =====================================================
+   ✅ (추가) 카드 KV 채우기 유틸
+   - title(카드 제목) + tag(우측 뱃지: 당월/다음달/전체누계 등)로 카드 찾기
+   - 카드 내부 .kv 의 span(label) 텍스트로 b(값) 찾아 채움
+===================================================== */
+function findCardsByTitle(titleText) {
+  const cards = Array.from(document.querySelectorAll(".card"));
+  return cards.filter((card) => {
+    const t = card.querySelector(".title");
+    return t && norm(t.textContent) === titleText;
+  });
+}
+
+function pickCard(titleText, tagText = "") {
+  const list = findCardsByTitle(titleText);
+  if (!tagText) return list[0] || null;
+
+  const want = norm(tagText);
+  return (
+    list.find((card) => {
+      const tag = card.querySelector(".tag");
+      return tag && norm(tag.textContent) === want;
+    }) || null
+  );
+}
+
+function setKvValue(cardEl, labelIncludes, value, formatter = (v) => fmtKR.format(v)) {
+  if (!cardEl) return false;
+  const kvs = Array.from(cardEl.querySelectorAll(".kv"));
+  const want = normNoSpace(labelIncludes);
+  for (const kv of kvs) {
+    const sp = kv.querySelector("span");
+    const b = kv.querySelector("b");
+    if (!sp || !b) continue;
+    const lab = normNoSpace(sp.textContent);
+    if (lab.includes(want)) {
+      b.textContent = formatter(value);
+      return true;
+    }
+  }
+  return false;
+}
+
+/* =====================================================
    1) 출고 누계(전체) - daily 전체 합
-   - 20pt: I(8)
-   - 40pt: J(9)
-   - LCL : L(11)
 ===================================================== */
 async function renderShipTotal() {
   const tb = $("ship_total_tbody");
@@ -242,17 +268,15 @@ async function renderShipTotal() {
   const text = await fetchText(URL_DAILY);
   const rows = parseCsv(text);
 
-  const COL_20 = 8;  // I
-  const COL_40 = 9;  // J
-  const COL_LCL = 11;// L
+  const COL_20 = 8;   // I
+  const COL_40 = 9;   // J
+  const COL_LCL = 11; // L
 
   let s20 = 0, s40 = 0, sL = 0;
 
   for (const r of rows) {
-    // 헤더/빈줄 제거
     const a0 = norm(r?.[0]);
     if (!a0 || a0.includes("날짜") || a0 === "A") continue;
-
     s20 += toNum(r?.[COL_20]);
     s40 += toNum(r?.[COL_40]);
     sL  += toNum(r?.[COL_LCL]);
@@ -273,13 +297,6 @@ async function renderShipTotal() {
 
 /* =====================================================
    2) 출고 요약(당일) - sap_doc 오늘 날짜 전체
-   - 인보이스: A(0)
-   - 국가:     E(4)
-   - 컨테이너: J(9)
-   - 상차위치: Q(16)
-   - 상차시간: T(19)
-   - 상태:     시간 기준 계산
-   - 정렬: 컨테이너(20→40→LCL) + 시간 오름차순
 ===================================================== */
 async function renderShipTodayAll() {
   const tb = $("ship_today_tbody");
@@ -296,12 +313,10 @@ async function renderShipTodayAll() {
   const COL_LOC = 16;      // Q
   const COL_TIME = 19;     // T
 
-  // ✅ 출고일 컬럼 탐색 (대부분 D(3)지만, 혹시 다를 수 있어 자동탐색)
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 120);
   let bestCol = 3, bestHit = 0;
 
-  // 1~7 정도만 훑어봄(성능/안정)
   for (const c of [1, 2, 3, 4, 5, 6, 7]) {
     let hit = 0;
     for (const r of sample) {
@@ -371,9 +386,6 @@ async function renderShipTodayAll() {
 
 /* =====================================================
    3) 월별 출고 누계(1~12월) - daily
-   - 날짜: A(0)
-   - 20pt: I(8), 40pt: J(9), LCL: L(11)
-   - 현재년도 기준 우선(없으면 전체에서 월합)
 ===================================================== */
 async function renderShipMonthly12() {
   const tb = $("ship_monthly_tbody");
@@ -389,7 +401,6 @@ async function renderShipMonthly12() {
 
   const yearNow = Number(getKRYMD(0).slice(0, 4));
 
-  // 1) 올해 데이터만 먼저 모아보고
   const sumsThisYear = Array.from({ length: 13 }, () => ({ s20: 0, s40: 0, sL: 0, hit: 0 }));
   const sumsAll = Array.from({ length: 13 }, () => ({ s20: 0, s40: 0, sL: 0, hit: 0 }));
 
@@ -418,7 +429,6 @@ async function renderShipMonthly12() {
     }
   }
 
-  // 올해 데이터가 하나라도 있으면 그걸 사용, 아니면 전체 사용
   const use = sumsThisYear.some((x, i) => i >= 1 && i <= 12 && x.hit > 0) ? sumsThisYear : sumsAll;
 
   tb.innerHTML = Array.from({ length: 12 }, (_, idx) => idx + 1).map((m) => {
@@ -440,9 +450,7 @@ async function renderShipMonthly12() {
 }
 
 /* =====================================================
-   4) 출고정보 (오늘 + 미래 6일 = 7일) - daily
-   - 날짜: A(0)
-   - 20pt: I(8), 40pt: J(9), LCL: L(11)
+   4) 출고정보 (오늘 + 미래6일 = 7일) - daily
 ===================================================== */
 async function renderShipNext7Days() {
   const tb = $("ship_7days_tbody");
@@ -456,7 +464,6 @@ async function renderShipNext7Days() {
   const COL_40 = 9;    // J
   const COL_LCL = 11;  // L
 
-  const today = getKRYMD(0);
   const range = [];
   const map = new Map();
 
@@ -481,12 +488,9 @@ async function renderShipNext7Days() {
     const o = map.get(d);
     const total = o.s20 + o.s40 + o.sL;
 
-    // 표시용: MM/DD or YYYY-MM-DD
-    const label = d;
-
     return `
       <tr>
-        <td class="cut">${label}</td>
+        <td class="cut">${d}</td>
         <td class="num">${fmtKR.format(o.s20)}</td>
         <td class="num">${fmtKR.format(o.s40)}</td>
         <td class="num">${fmtKR.format(o.sL)}</td>
@@ -498,20 +502,16 @@ async function renderShipNext7Days() {
 
 /* =====================================================
    5) 보수 작업(당월/다음달)
-   - 예상(작업 예상량): sap_item
-       · 날짜: E(4)
-       · 작업량: T(19) 합계
-   - 완료(작업량 완료): bosu
-       · 날짜: B(1)
-       · 상태: J(9) == "완료"
-       · 수량: F(5) 합계
-   - 잔량 = 예상 - 완료
+   - (카드 KV 방식 우선 지원)
 ===================================================== */
-async function renderBosuMonth() {
-  const tb = $("bosu_month_tbody");
-  if (!tb) return;
+async function renderBosuCards() {
+  // 당월/다음달 보수 카드 찾기 (제목 "보수작업" + tag "당월"/"다음달")
+  const cardNow = pickCard("보수작업", "당월");
+  const cardNext = pickCard("보수작업", "다음달");
 
-  // month keys
+  // tbody 방식(혹시 있을 경우)
+  const tb = $("bosu_month_tbody");
+
   const ymNow = ymFromYMD(getKRYMD(0));
   const ymNext = shiftYM(ymNow, +1);
 
@@ -544,9 +544,9 @@ async function renderBosuMonth() {
     const t2 = await fetchText(URL_BOSU);
     const rows2 = parseCsv(t2);
 
-    const COL_DATE = 1;   // B
-    const COL_QTY  = 5;   // F
-    const COL_ST   = 9;   // J
+    const COL_DATE = 1; // B
+    const COL_QTY  = 5; // F
+    const COL_ST   = 9; // J
 
     for (const r of rows2) {
       const d = toYMD(r?.[COL_DATE]);
@@ -568,33 +568,42 @@ async function renderBosuMonth() {
   const remNow = expNow - doneNow;
   const remNext = expNext - doneNext;
 
-  // HTML 컬럼이 다를 수 있으니: (월 / 예상 / 완료 / 잔량) 형태로 그려줌
-  tb.innerHTML = `
-    <tr>
-      <td class="cut">${monthLabel(ymNow)}</td>
-      <td class="num">${fmtKR.format(expNow)}</td>
-      <td class="num">${fmtKR.format(doneNow)}</td>
-      <td class="num font-extrabold">${fmtKR.format(remNow)}</td>
-    </tr>
-    <tr>
-      <td class="cut">${monthLabel(ymNext)}</td>
-      <td class="num">${fmtKR.format(expNext)}</td>
-      <td class="num">${fmtKR.format(doneNext)}</td>
-      <td class="num font-extrabold">${fmtKR.format(remNext)}</td>
-    </tr>
-  `;
+  // ✅ 1) tbody 있으면 tbody 채움
+  if (tb) {
+    tb.innerHTML = `
+      <tr>
+        <td class="cut">${monthLabel(ymNow)}</td>
+        <td class="num">${fmtKR.format(expNow)}</td>
+        <td class="num">${fmtKR.format(doneNow)}</td>
+        <td class="num font-extrabold">${fmtKR.format(remNow)}</td>
+      </tr>
+      <tr>
+        <td class="cut">${monthLabel(ymNext)}</td>
+        <td class="num">${fmtKR.format(expNext)}</td>
+        <td class="num">${fmtKR.format(doneNext)}</td>
+        <td class="num font-extrabold">${fmtKR.format(remNext)}</td>
+      </tr>
+    `;
+  }
+
+  // ✅ 2) 카드 KV 방식 채움 (HTML 수정 없이)
+  setKvValue(cardNow, "작업예상량", expNow);
+  setKvValue(cardNow, "작업량(완료)", doneNow);
+  setKvValue(cardNow, "잔량", remNow);
+
+  setKvValue(cardNext, "작업예상량", expNext);
+  setKvValue(cardNext, "작업량(완료)", doneNext);
+  setKvValue(cardNext, "잔량", remNext);
 }
 
 /* =====================================================
    6) 설비 작업(당월/다음달) - daily
-   - 날짜: A(0)
-   - 설비 작업량: F(5) 합계
-   - 작업일: 해당월에서 (F>0)인 날짜 distinct
-   - 평균: 작업량 / 작업일
 ===================================================== */
-async function renderSystemMonth() {
+async function renderSystemCards() {
+  const cardNow = pickCard("설비 작업", "당월");
+  const cardNext = pickCard("설비 작업", "다음달");
+
   const tb = $("system_month_tbody");
-  if (!tb) return;
 
   const ymNow = ymFromYMD(getKRYMD(0));
   const ymNext = shiftYM(ymNow, +1);
@@ -628,33 +637,36 @@ async function renderSystemMonth() {
   const avgNow = daysNow.size ? (sumNow / daysNow.size) : 0;
   const avgNext = daysNext.size ? (sumNext / daysNext.size) : 0;
 
-  // (월 / 작업량 / 평균) 형태로 렌더
-  tb.innerHTML = `
-    <tr>
-      <td class="cut">${monthLabel(ymNow)}</td>
-      <td class="num">${fmtKR.format(sumNow)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgNow))}</td>
-    </tr>
-    <tr>
-      <td class="cut">${monthLabel(ymNext)}</td>
-      <td class="num">${fmtKR.format(sumNext)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgNext))}</td>
-    </tr>
-  `;
+  // tbody 방식
+  if (tb) {
+    tb.innerHTML = `
+      <tr>
+        <td class="cut">${monthLabel(ymNow)}</td>
+        <td class="num">${fmtKR.format(sumNow)}</td>
+        <td class="num">${fmtKR.format(Math.round(avgNow))}</td>
+      </tr>
+      <tr>
+        <td class="cut">${monthLabel(ymNext)}</td>
+        <td class="num">${fmtKR.format(sumNext)}</td>
+        <td class="num">${fmtKR.format(Math.round(avgNext))}</td>
+      </tr>
+    `;
+  }
+
+  // 카드 KV 방식
+  setKvValue(cardNow, "설비작업량", sumNow);
+  setKvValue(cardNow, "설비평균작업량", Math.round(avgNow));
+
+  setKvValue(cardNext, "설비작업량", sumNext);
+  setKvValue(cardNext, "설비평균작업량", Math.round(avgNext));
 }
 
 /* =====================================================
    7) 작업장별 작업수량 (전체 누계) - daily
-   - 보수A: D(3) 합계
-   - 보수B: E(4) 합계
-   - 설비:  F(5) 합계
-   - 평균: 합계 / 작업일
-     (각 구분별: 해당 구분 값>0 인 날짜 distinct 기준)
-     전체 평균: (D+E+F) / (D/E/F 중 하나라도 >0인 날짜 distinct)
 ===================================================== */
 async function renderWorkplaceTotal() {
   const tb = $("workplace_total_tbody");
-  if (!tb) return;
+  const card = pickCard("작업장별 작업수량", "전체누계") || pickCard("작업장별 작업수량", "전체");
 
   const text = await fetchText(URL_DAILY);
   const rows = parseCsv(text);
@@ -693,28 +705,38 @@ async function renderWorkplaceTotal() {
   const sAll = sA + sB + sS;
   const avgAll = dAll.size ? (sAll / dAll.size) : 0;
 
-  tb.innerHTML = `
-    <tr>
-      <td class="cut">보수A</td>
-      <td class="num">${fmtKR.format(sA)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgA))}</td>
-    </tr>
-    <tr>
-      <td class="cut">보수B</td>
-      <td class="num">${fmtKR.format(sB)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgB))}</td>
-    </tr>
-    <tr>
-      <td class="cut">설비</td>
-      <td class="num">${fmtKR.format(sS)}</td>
-      <td class="num">${fmtKR.format(Math.round(avgS))}</td>
-    </tr>
-    <tr>
-      <td class="cut font-extrabold">전체</td>
-      <td class="num font-extrabold">${fmtKR.format(sAll)}</td>
-      <td class="num font-extrabold">${fmtKR.format(Math.round(avgAll))}</td>
-    </tr>
-  `;
+  // ✅ tbody 있으면 tbody 채움
+  if (tb) {
+    tb.innerHTML = `
+      <tr>
+        <td class="cut">보수A</td>
+        <td class="num">${fmtKR.format(sA)}</td>
+        <td class="num">${fmtKR.format(Math.round(avgA))}</td>
+      </tr>
+      <tr>
+        <td class="cut">보수B</td>
+        <td class="num">${fmtKR.format(sB)}</td>
+        <td class="num">${fmtKR.format(Math.round(avgB))}</td>
+      </tr>
+      <tr>
+        <td class="cut">설비</td>
+        <td class="num">${fmtKR.format(sS)}</td>
+        <td class="num">${fmtKR.format(Math.round(avgS))}</td>
+      </tr>
+      <tr>
+        <td class="cut font-extrabold">전체</td>
+        <td class="num font-extrabold">${fmtKR.format(sAll)}</td>
+        <td class="num font-extrabold">${fmtKR.format(Math.round(avgAll))}</td>
+      </tr>
+    `;
+  }
+
+  // ✅ 카드 KV 구조일 수도 있으니(혹시) 대비
+  // (라벨을 못 찾으면 그냥 스킵)
+  setKvValue(card, "보수A", sA);
+  setKvValue(card, "보수B", sB);
+  setKvValue(card, "설비", sS);
+  setKvValue(card, "전체", sAll);
 }
 
 /* =========================
@@ -727,8 +749,8 @@ async function runAll() {
       renderShipTotal(),
       renderShipMonthly12(),
       renderShipNext7Days(),
-      renderBosuMonth(),
-      renderSystemMonth(),
+      renderBosuCards(),
+      renderSystemCards(),
       renderWorkplaceTotal(),
     ]);
   } catch (e) {
