@@ -231,41 +231,43 @@
           <!-- LEFT: 출고 누계/요약 (xl:3) -->
           <div class="col-span-12 xl:col-span-4 space-y-3"> 
 
-            <!-- 출고 누계 -->
+          
+            
+              <!-- 출고정보 7일 -->
             <div class="card">
               <div class="card-h">
                 <div>
-                  <div class="title">출고 누계</div>
-                  <div class="sub">1월~12월 · 컨테이너 & LCL · 누계</div>
+                  <div class="title">출고정보 (오늘기준 7일 내역)</div>
+                  <div class="sub">daily · 오늘~미래6일</div>
                 </div>
-                <div class="tag">누계</div>
+                <div class="tag">7일</div>
               </div>
               <div class="card-b">
                 <table class="tbl">
                   <colgroup>
-                    <col style="width:28%">
-                    <col style="width:18%">
-                    <col style="width:18%">
-                    <col style="width:18%">
-                    <col style="width:18%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>구분</th>
+                      <th>날짜</th>
                       <th>20pt</th>
                       <th>40pt</th>
                       <th>LCL</th>
                       <th>합계</th>
                     </tr>
                   </thead>
-                  <tbody id="ship_total_tbody">
+                  <tbody id="ship_7days_tbody">
                     <tr><td colspan="5" class="muted">loading</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <!-- 출고 요약 -->
+              <!-- 출고 요약 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -305,7 +307,41 @@
           </div>
 
           <!-- MIDDLE: 월별/7일 (xl:4) -->
-          <div class="col-span-12 xl:col-span-2 space-y-3">  
+          <div class="col-span-12 xl:col-span-3 space-y-3">  
+            
+           <!-- 출고 누계 -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">출고 누계</div>
+                  <div class="sub">1월~12월 · 컨테이너 & LCL · 누계</div>
+                </div>
+                <div class="tag">누계</div>
+              </div>
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:28%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>구분</th>
+                      <th>20pt</th>
+                      <th>40pt</th>
+                      <th>LCL</th>
+                      <th>합계</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ship_total_tbody">
+                    <tr><td colspan="5" class="muted">loading</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
             <!-- 월별 출고 누계 -->
             <div class="card">
@@ -340,45 +376,44 @@
                 </table>
               </div>
             </div>
-
-            <!-- 출고정보 7일 -->
+             
+              <!-- 작업장별 작업수량 (전체누계) -->
             <div class="card">
               <div class="card-h">
                 <div>
-                  <div class="title">출고정보 (오늘기준 7일 내역)</div>
-                  <div class="sub">daily · 오늘~미래6일</div>
+                  <div class="title">작업장별 작업수량</div>
+                  <div class="sub">daily · 전체누계</div>
                 </div>
-                <div class="tag">7일</div>
+                <div class="tag">전체누계</div>
               </div>
               <div class="card-b">
                 <table class="tbl">
                   <colgroup>
                     <col style="width:20%">
-                    <col style="width:20%">
-                    <col style="width:20%">
-                    <col style="width:20%">
-                    <col style="width:20%">
+                    <col style="width:40%">
+                    <col style="width:40%">
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>날짜</th>
-                      <th>20pt</th>
-                      <th>40pt</th>
-                      <th>LCL</th>
-                      <th>합계</th>
+                      <th>구분</th>
+                      <th>작업량</th>
+                      <th>평균</th>
                     </tr>
                   </thead>
-                  <tbody id="ship_7days_tbody">
-                    <tr><td colspan="5" class="muted">loading</td></tr>
+                  <tbody id="work_total_tbody">
+                    <tr><td class="cut">보수A</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut">보수B</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut">설비</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut font-extrabold">전체</td><td class="font-extrabold">-</td><td class="font-extrabold">-</td></tr>
                   </tbody>
                 </table>
               </div>
             </div>
-
+          
           </div>
 
           <!-- RIGHT: 미니 (xl:2) -->
-          <div class="col-span-12 xl:col-span-3 space-y-3 mini"> 
+          <div class="col-span-12 xl:col-span-2 space-y-3 mini"> 
 
             <!-- 보수작업 (당월) -->
             <div class="card">
@@ -442,39 +477,7 @@
               </div>
             </div>
 
-            <!-- 작업장별 작업수량 (전체누계) -->
-            <div class="card">
-              <div class="card-h">
-                <div>
-                  <div class="title">작업장별 작업수량</div>
-                  <div class="sub">daily · 전체누계</div>
-                </div>
-                <div class="tag">전체누계</div>
-              </div>
-              <div class="card-b">
-                <table class="tbl">
-                  <colgroup>
-                    <col style="width:20%">
-                    <col style="width:40%">
-                    <col style="width:40%">
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th>구분</th>
-                      <th>작업량</th>
-                      <th>평균</th>
-                    </tr>
-                  </thead>
-                  <tbody id="work_total_tbody">
-                    <tr><td class="cut">보수A</td><td>-</td><td>-</td></tr>
-                    <tr><td class="cut">보수B</td><td>-</td><td>-</td></tr>
-                    <tr><td class="cut">설비</td><td>-</td><td>-</td></tr>
-                    <tr><td class="cut font-extrabold">전체</td><td class="font-extrabold">-</td><td class="font-extrabold">-</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
+          
             <!-- ✅ 재고 합계 (wms) -->
             <div class="card">
               <div class="card-h">
