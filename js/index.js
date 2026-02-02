@@ -202,11 +202,28 @@ async function renderShipToday() {
   const today = getKRYMD(0);
 
   // sap_doc 컬럼
-  const COL_INV = 0;    // A
-  const COL_SHIP_DATE = 3; // ✅ D(출고일) - 오늘 필터
-  const COL_COUNTRY = 4; // E
-  const COL_CONT = 9;    // J
-  const COL_TIME = 19;   // T
+  const COL_INV = 0;         // A
+  const COL_SHIP_DATE = 3;   // D (오늘 필터)
+  const COL_COUNTRY = 4;     // E
+  const COL_CONT = 9;        // J (20/40/LCL)
+  const COL_LOC = 16;        // ✅ Q (상차위치)
+  const COL_TIME = 19;       // T (상차시간)
+
+  function contRank(v) {
+    const s = norm(v).toUpperCase();
+    // 값이 "20", "20PT", "20ft" 등 섞여도 대응
+    if (s.includes("20")) return 0;
+    if (s.includes("40")) return 1;
+    if (s.includes("LCL")) return 2;
+    // 기타는 맨 뒤
+    return 9;
+  }
+
+  function timeToMin(v) {
+    const t = parseKoreanTime(v);
+    if (!t) return 9999; // 시간 없으면 맨 뒤로
+    return t.h * 60 + t.m;
+  }
 
   const data = [];
 
@@ -215,28 +232,41 @@ async function renderShipToday() {
     if (!inv || inv.includes("인보") || inv === "A") continue;
 
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
-    if (shipDate !== today) continue; // ✅ 오늘만
+    if (shipDate !== today) continue;
 
     const country = norm(r?.[COL_COUNTRY]);
     const cont = norm(r?.[COL_CONT]);
+    const loc = norm(r?.[COL_LOC]);     // ✅ 상차위치
     const time = norm(r?.[COL_TIME]);
 
     const status = getStatusByTime(time);
 
-    data.push({ inv, country, cont, time, status });
+    data.push({
+      inv, country, cont, loc, time, status,
+      _rank: contRank(cont),
+      _tmin: timeToMin(time),
+    });
   }
 
-  const tb = $("ship_today_tbody");
+  // ✅ 정렬: 20 → 40 → LCL, 그 다음 시간 오름차순
+  data.sort((a, b) => {
+    if (a._rank !== b._rank) return a._rank - b._rank;
+    return a._tmin - b._tmin;
+  });
+
+  const tb = document.getElementById("ship_today_tbody");
   if (!tb) return;
 
   if (data.length === 0) {
-    tb.innerHTML = `<tr><td colspan="5" class="muted">오늘 출고 없음</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" class="muted">오늘 출고 없음</td></tr>`;
     return;
   }
 
   tb.innerHTML = data.map(x => {
     const isLoading = x.status === "상차중";
     const rowCls = isLoading ? "bg-yellow-50" : "";
+    const boldCls = isLoading ? "font-extrabold" : "";
+
     const stCls =
       x.status === "상차중" ? "text-amber-700 font-extrabold" :
       x.status === "지연" ? "text-rose-700 font-extrabold" :
@@ -244,15 +274,17 @@ async function renderShipToday() {
 
     return `
       <tr class="${rowCls}">
-        <td class="cut ${isLoading ? "font-extrabold" : ""}">${x.inv}</td>
-        <td class="cut ${isLoading ? "font-extrabold" : ""}">${x.country || "-"}</td>
-        <td class="cut ${isLoading ? "font-extrabold" : ""}">${x.cont || "-"}</td>
-        <td class="cut ${isLoading ? "font-extrabold" : ""}">${x.time || "-"}</td>
+        <td class="cut ${boldCls}">${x.inv}</td>
+        <td class="cut ${boldCls}">${x.country || "-"}</td>
+        <td class="cut ${boldCls}">${x.cont || "-"}</td>
+        <td class="cut ${boldCls}">${x.loc || "-"}</td>
+        <td class="cut ${boldCls}">${x.time || "-"}</td>
         <td class="cut ${stCls}">${x.status}</td>
       </tr>
     `;
   }).join("");
 }
+
 
 // =========================
 // Run
