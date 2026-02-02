@@ -81,46 +81,51 @@
     .kv span { font-size:12px; font-weight:800; color:#475569; }
     .kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
 
-    /* ✅ dock-card (컴팩트 버전) */
-    .dock-card{
-      background:#fff;
-      border:1px solid #e5e7eb;
-      border-radius:14px;
-      box-shadow:0 1px 2px rgba(0,0,0,.04);
-      padding:10px;
-    }
-    .dock-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
-    .dock-title{ font-size:12px; font-weight:900; color:#0f172a; }
-    .pill{
-      font-size:10px; font-weight:900;
-      padding:2px 8px; border-radius:999px;
-      border:1px solid #e2e8f0;
-      color:#0f172a;
-      background:#f8fafc;
-    }
-    .dock-owner{ font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px; }
-    .dock-table{
-      width:100%;
-      border-collapse:collapse;
-      table-layout:fixed;
-    }
-    .dock-table th, .dock-table td{
-      padding:6px 6px;
-      border-top:1px solid #eef2f7;
-      font-size:11px;
-      font-weight:600;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      vertical-align:middle;
-      color:#0f172a;
-    }
-    .dock-table thead th{
-      border-top:none;
-      color:#475569;
-      font-weight:800;
-      text-align:left;
-    }
+    /* Dock cards (좌측) */
+.dock-card{
+  background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:18px;
+  padding:14px;
+  box-shadow:0 10px 28px rgba(15,23,42,.20);
+}
+.dock-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.dock-title{ font-size:12px; font-weight:950; color:rgba(255,255,255,.90); }
+.pill{
+  font-size:10px; padding:3px 9px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.08);
+  color:rgba(255,255,255,.88);
+  font-weight:900;
+}
+.dock-owner{ margin-top:8px; font-size:13px; font-weight:950; color:rgba(255,255,255,.95); }
+.dock-table{ width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; }
+.dock-table th{
+  text-align:left; font-size:10px; color:rgba(255,255,255,.65); font-weight:950;
+  padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap;
+}
+.dock-table td{
+  font-size:11px; color:rgba(255,255,255,.92); font-weight:950;
+  padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
+}
+.dock-table tr:last-child td{ border-bottom:none; }
+
+.scroll-box{
+  max-height: 260px;
+  overflow:auto;
+}
+.scroll-box::-webkit-scrollbar{ width:8px; }
+.scroll-box::-webkit-scrollbar-thumb{ background:#d7dee8; border-radius:999px; }
+.scroll-box::-webkit-scrollbar-track{ background:transparent; }
+
+.boardbar{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  box-shadow:0 1px 2px rgba(0,0,0,.05);
+}
+
   </style>
 </head>
 
