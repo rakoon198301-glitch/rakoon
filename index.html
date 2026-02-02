@@ -176,57 +176,70 @@
              ✅ 4열 레이아웃 (상차 | 출고좌 | 출고중 | 우측미니)
              - gap/space-y 줄여서 “덩치” 축소
         ========================== -->
-        <section class="grid grid-cols-12 gap-3">
+        <div class="col-span-12 xl:col-span-3 space-y-3">
 
-          <!-- ✅ 좌측: 상차장 (xl:3) -->
-          <div class="col-span-12 xl:col-span-3 space-y-3">
+  <div class="dock-card">
+    <div class="dock-head"><div class="dock-title">A 상차장</div><span class="pill">LIVE</span></div>
+    <div class="dock-owner">담당자 - <span id="dock_a_owner">-</span></div>
 
-            <div class="dock-card">
-              <div class="dock-head"><div class="dock-title">A 상차장</div><span class="pill">LIVE</span></div>
-              <div class="dock-owner">담당자 - <span id="dock_a_owner">-</span></div>
-              <table class="dock-table">
-                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
-                <tbody id="dock_a_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
-              </table>
-            </div>
+    <div class="scroll-box" style="max-height:180px;">
+      <table class="dock-table">
+        <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+        <tbody id="dock_a_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-            <div class="dock-card">
-              <div class="dock-head"><div class="dock-title">이동-1 상차장</div><span class="pill">LIVE</span></div>
-              <div class="dock-owner">담당자 - <span id="dock_m1_owner">-</span></div>
-              <table class="dock-table">
-                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
-                <tbody id="dock_m1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
-              </table>
-            </div>
+  <div class="dock-card">
+    <div class="dock-head"><div class="dock-title">이동-1 상차장</div><span class="pill">LIVE</span></div>
+    <div class="dock-owner">담당자 - <span id="dock_m1_owner">-</span></div>
 
-            <div class="dock-card">
-              <div class="dock-head"><div class="dock-title">이동-2 상차장</div><span class="pill">LIVE</span></div>
-              <div class="dock-owner">담당자 - <span id="dock_m2_owner">-</span></div>
-              <table class="dock-table">
-                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
-                <tbody id="dock_m2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
-              </table>
-            </div>
+    <div class="scroll-box" style="max-height:180px;">
+      <table class="dock-table">
+        <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+        <tbody id="dock_m1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-            <div class="dock-card">
-              <div class="dock-head"><div class="dock-title">B-1 상차장</div><span class="pill">LIVE</span></div>
-              <div class="dock-owner">담당자 - <span id="dock_b1_owner">-</span></div>
-              <table class="dock-table">
-                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
-                <tbody id="dock_b1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
-              </table>
-            </div>
+  <div class="dock-card">
+    <div class="dock-head"><div class="dock-title">이동-2 상차장</div><span class="pill">LIVE</span></div>
+    <div class="dock-owner">담당자 - <span id="dock_m2_owner">-</span></div>
 
-            <div class="dock-card">
-              <div class="dock-head"><div class="dock-title">B-2 상차장</div><span class="pill">LIVE</span></div>
-              <div class="dock-owner">담당자 - <span id="dock_b2_owner">-</span></div>
-              <table class="dock-table">
-                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
-                <tbody id="dock_b2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
-              </table>
-            </div>
+    <div class="scroll-box" style="max-height:180px;">
+      <table class="dock-table">
+        <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+        <tbody id="dock_m2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-          </div>
+  <div class="dock-card">
+    <div class="dock-head"><div class="dock-title">B-1 상차장</div><span class="pill">LIVE</span></div>
+    <div class="dock-owner">담당자 - <span id="dock_b1_owner">-</span></div>
+
+    <div class="scroll-box" style="max-height:180px;">
+      <table class="dock-table">
+        <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+        <tbody id="dock_b1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="dock-card">
+    <div class="dock-head"><div class="dock-title">B-2 상차장</div><span class="pill">LIVE</span></div>
+    <div class="dock-owner">담당자 - <span id="dock_b2_owner">-</span></div>
+
+    <div class="scroll-box" style="max-height:180px;">
+      <table class="dock-table">
+        <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+        <tbody id="dock_b2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
 
           <!-- LEFT: 출고 누계/요약 (xl:3) -->
           <div class="col-span-12 xl:col-span-3 space-y-3"> 
@@ -454,9 +467,9 @@
               <div class="card-b">
                 <table class="tbl">
                   <colgroup>
+                    <col style="width:20%">
                     <col style="width:40%">
-                    <col style="width:30%">
-                    <col style="width:30%">
+                    <col style="width:40%">
                   </colgroup>
                   <thead>
                     <tr>
