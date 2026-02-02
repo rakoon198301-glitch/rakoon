@@ -8,28 +8,134 @@
 
   <style>
     body { background:#eef1f5; }
+
+    /* 카드 덩치/헤더 간격 줄이기 */
+    .card {
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
+    .card-h {
+      padding: 8px 10px;
+      border-bottom:1px solid #f1f5f9;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .card-b { padding: 8px 10px; }
+
+    .title { font-size:12px; font-weight:900; color:#0f172a; line-height:1.2; }
+    .sub   { font-size:11px; font-weight:700; color:#64748b; line-height:1.2; margin-top:2px; }
+    .tag   { font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; }
+
+    /* ✅ 테이블: 폰트/간격 통일(헤더/본문 동일 크기) */
+    .tbl{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .tbl th,
+    .tbl td{
+      padding:8px 10px;
+      border-top:1px solid #eef2f7;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      vertical-align:middle;
+
+      font-size:13px;
+      font-weight:600;
+      color:#0f172a;
+      letter-spacing:-0.1px;
+    }
+    .tbl thead th{
+      border-top:none;
+      color:#475569;
+      text-align:center;
+      font-weight:700;
+    }
+    .tbl td{
+      text-align:center;
+      font-variant-numeric: tabular-nums;
+    }
+    .tbl th:first-child,
+    .tbl td:first-child{
+      text-align:left;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .cut{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    /* 오른쪽 작은 카드 */
+    .mini .card-h { padding:8px 10px; }
+    .mini .card-b { padding:10px; }
+    .kv { display:flex; align-items:center; justify-content:space-between; }
+    .kv span { font-size:12px; font-weight:800; color:#475569; }
+    .kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
+
+    /* ✅ dock-card (컴팩트 버전) */
+    .dock-card{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+      padding:10px;
+    }
+    .dock-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .dock-title{ font-size:12px; font-weight:900; color:#0f172a; }
+    .pill{
+      font-size:10px; font-weight:900;
+      padding:2px 8px; border-radius:999px;
+      border:1px solid #e2e8f0;
+      color:#0f172a;
+      background:#f8fafc;
+    }
+    .dock-owner{ font-size:11px; font-weight:700; color:#64748b; margin-bottom:8px; }
+    .dock-table{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
+    }
+    .dock-table th, .dock-table td{
+      padding:6px 6px;
+      border-top:1px solid #eef2f7;
+      font-size:11px;
+      font-weight:600;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      vertical-align:middle;
+      color:#0f172a;
+    }
+    .dock-table thead th{
+      border-top:none;
+      color:#475569;
+      font-weight:800;
+      text-align:left;
+    }
   </style>
 </head>
 
 <body class="min-h-screen">
 
-  <!-- nav.js  -->
+  <!-- nav.js -->
   <script src="nav.js"></script>
   <script type="module" src="./js/index.js"></script>
-
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
     <div class="relative">
 
-    
-
-      
-      <!-- =======================
-           Main
-           ======================= -->
       <main class="min-w-0">
 
-        <!--  상단바(그대로 유지) -->
+        <!-- 상단바(그대로 유지) -->
         <div id="boardBar" class="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
@@ -40,7 +146,6 @@
             </div>
 
             <div class="flex items-center gap-3">
-              <!-- MENU 버튼 -->
               <button id="btnSidebar"
                 class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
                 MENU
@@ -50,7 +155,7 @@
                 <div id="boardClock" class="text-lg md:text-xl font-extrabold tabular-nums text-slate-900">--:--:--</div>
                 <div class="text-[11px] text-slate-500">
                   마지막 갱신:
-                  <span class="font-extrabold text-sky-700">-</span>
+                  <span id="dataUpdatedTop" class="font-extrabold text-sky-700">-</span>
                 </div>
               </div>
 
@@ -62,373 +167,334 @@
           </div>
         </div>
 
-        <style>
-  body { background:#eef1f5; }
+        <!-- =========================
+             ✅ 4열 레이아웃 (상차 | 출고좌 | 출고중 | 우측미니)
+             - gap/space-y 줄여서 “덩치” 축소
+        ========================== -->
+        <section class="grid grid-cols-12 gap-2">
 
-  /* 카드 덩치/헤더 간격 줄이기 */
-  .card {
-    background:#fff;
-    border:1px solid #e5e7eb;
-    border-radius:14px;
-    box-shadow:0 1px 2px rgba(0,0,0,.04);
-  }
-  .card-h {
-    padding: 8px 10px;                /* ✅ 헤더 간격 줄임 */
-    border-bottom:1px solid #f1f5f9;
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
-  }
-  .card-b { padding: 8px 10px; }      /* ✅ 본문 간격 줄임 */
+          <!-- ✅ 좌측: 상차장 (xl:3) -->
+          <div class="col-span-12 xl:col-span-3 space-y-2">
 
-  .title { font-size:12px; font-weight:900; color:#0f172a; line-height:1.2; }
-  .sub   { font-size:11px; font-weight:700; color:#64748b; line-height:1.2; margin-top:2px; }
-  .tag   { font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; }
+            <div class="dock-card">
+              <div class="dock-head"><div class="dock-title">A 상차장</div><span class="pill">LIVE</span></div>
+              <div class="dock-owner">담당자 - <span id="dock_a_owner">-</span></div>
+              <table class="dock-table">
+                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+                <tbody id="dock_a_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+              </table>
+            </div>
 
-  /* 테이블: 가로 스크롤 안 나오게 (fixed + ellipsis) */
- /* ✅ 테이블 정렬/간격 고정 */
-.tbl{
-  width:100%;
-  border-collapse:collapse;
-  table-layout:fixed;
-}
+            <div class="dock-card">
+              <div class="dock-head"><div class="dock-title">이동-1 상차장</div><span class="pill">LIVE</span></div>
+              <div class="dock-owner">담당자 - <span id="dock_m1_owner">-</span></div>
+              <table class="dock-table">
+                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+                <tbody id="dock_m1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+              </table>
+            </div>
 
-.tbl th,
-.tbl td{
-  padding:8px 10px;
-  border-top:1px solid #eef2f7;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  vertical-align:middle;
+            <div class="dock-card">
+              <div class="dock-head"><div class="dock-title">이동-2 상차장</div><span class="pill">LIVE</span></div>
+              <div class="dock-owner">담당자 - <span id="dock_m2_owner">-</span></div>
+              <table class="dock-table">
+                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+                <tbody id="dock_m2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+              </table>
+            </div>
 
-  /* ✅ 폰트 통일 */
-  font-size:13px;
-  font-weight:600;
-  color:#0f172a;
-  letter-spacing:-0.1px;
-}
+            <div class="dock-card">
+              <div class="dock-head"><div class="dock-title">B-1 상차장</div><span class="pill">LIVE</span></div>
+              <div class="dock-owner">담당자 - <span id="dock_b1_owner">-</span></div>
+              <table class="dock-table">
+                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+                <tbody id="dock_b1_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+              </table>
+            </div>
 
-/* 헤더는 톤만 살짝 연하게 (크기 동일) */
-.tbl thead th{
-  border-top:none;
-  color:#475569;
-  text-align:center;
-}
+            <div class="dock-card">
+              <div class="dock-head"><div class="dock-title">B-2 상차장</div><span class="pill">LIVE</span></div>
+              <div class="dock-owner">담당자 - <span id="dock_b2_owner">-</span></div>
+              <table class="dock-table">
+                <thead><tr><th>인보이스</th><th>국가</th><th>컨테이너</th><th>상차시간</th><th>CBM</th><th>작업여부</th></tr></thead>
+                <tbody id="dock_b2_list"><tr><td colspan="6" class="muted">구글 CSV 연동 예정</td></tr></tbody>
+              </table>
+            </div>
 
-/* 숫자 가독성 */
-.tbl td{
-  text-align:center;
-  font-variant-numeric: tabular-nums;
-}
+          </div>
 
-/* 첫 컬럼만 왼쪽 정렬 */
-.tbl th:first-child,
-.tbl td:first-child{
-  text-align:left;
-}
+          <!-- LEFT: 출고 누계/요약 (xl:3) -->
+          <div class="col-span-12 xl:col-span-3 space-y-2">
 
+            <!-- 출고 누계 -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">출고 누계</div>
+                  <div class="sub">1월~12월 · 컨테이너 & LCL · 누계</div>
+                </div>
+                <div class="tag">누계</div>
+              </div>
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:28%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>구분</th>
+                      <th>20pt</th>
+                      <th>40pt</th>
+                      <th>LCL</th>
+                      <th>합계</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ship_total_tbody">
+                    <tr><td colspan="5" class="muted">loading</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-/* ✅ 첫 컬럼(구분/월/날짜) 왼쪽정렬 + 자동 ... */
-.tbl td:first-child, .tbl th:first-child{
-  text-align:left;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
+            <!-- 출고 요약 -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">출고 요약</div>
+                  <div class="sub">컨테이너 · LCL · 요약</div>
+                </div>
+                <div class="tag">당일</div>
+              </div>
 
-/* (선택) cut 클래스는 유지해도 되고 없어도 됨 */
-.cut{
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:19%">
+                    <col style="width:21%">
+                    <col style="width:15%">
+                    <col style="width:12%">
+                    <col style="width:18%">
+                    <col style="width:15%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>인보이스</th>
+                      <th>국가</th>
+                      <th>컨테이너</th>
+                      <th>위치</th>
+                      <th>상차시간</th>
+                      <th>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ship_today_tbody">
+                    <tr><td colspan="6" class="muted">loading</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-/* 오른쪽 작은 카드 */
-.mini .card-h { padding:8px 10px; }
-.mini .card-b { padding:10px; }
-.kv { display:flex; align-items:center; justify-content:space-between; }
-.kv span { font-size:12px; font-weight:800; color:#475569; }
-.kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
+          </div>
 
-</style>
+          <!-- MIDDLE: 월별/7일 (xl:4) -->
+          <div class="col-span-12 xl:col-span-4 space-y-2">
 
-<!-- =========================
-   Compact Dashboard v2
-========================= -->
-<section class="grid grid-cols-12 gap-3">
+            <!-- 월별 출고 누계 -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">월별 출고 누계</div>
+                  <div class="sub">daily · 12개월</div>
+                </div>
+                <div class="tag">누계</div>
+              </div>
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>월</th>
+                      <th>20pt</th>
+                      <th>40pt</th>
+                      <th>LCL</th>
+                      <th>합계</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ship_monthly_tbody">
+                    <tr><td colspan="5" class="muted">loading</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-  <!-- LEFT (xl:4) -->
-  <div class="col-span-12 xl:col-span-4 space-y-3">
+            <!-- 출고정보 7일 -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">출고정보 (오늘기준 7일 내역)</div>
+                  <div class="sub">daily · 오늘~미래6일</div>
+                </div>
+                <div class="tag">7일</div>
+              </div>
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                    <col style="width:20%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>날짜</th>
+                      <th>20pt</th>
+                      <th>40pt</th>
+                      <th>LCL</th>
+                      <th>합계</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ship_7days_tbody">
+                    <tr><td colspan="5" class="muted">loading</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-    <!-- 출고 누계 -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">출고 누계</div>
-          <div class="sub">1월~12월 · 컨테이너 & LCL · 누계 </div>
-        </div>
-        <div class="tag">누계</div>
-      </div>
+          </div>
 
-      <div class="card-b">
-        <table class="tbl">
-          <colgroup>
-            <col style="width:28%">
-            <col style="width:18%">
-            <col style="width:18%">
-            <col style="width:18%">
-            <col style="width:18%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>구분</th>
-              <th class="num">20pt</th>
-              <th class="num">40pt</th>
-              <th class="num">LCL</th>
-              <th class="num">합계</th>
-            </tr>
-          </thead>
-          <tbody id="ship_total_tbody">
-            <tr><td colspan="5" class="muted">loading</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+          <!-- RIGHT: 미니 (xl:2) -->
+          <div class="col-span-12 xl:col-span-2 space-y-2 mini">
 
-    <!-- 출고 요약  -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">출고 요약</div>
-          <div class="sub"> 컨테이너 · LCL · 요약 </div>
-        </div>
-        <div class="tag">당일</div>
-      </div>
+            <!-- 보수작업 (당월) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">보수작업</div>
+                  <div class="sub">sap_item + bosu</div>
+                </div>
+                <div class="tag">당월</div>
+              </div>
+              <div class="card-b space-y-2">
+                <div class="kv"><span>작업 예상량</span><b id="rep_cur_plan">-</b></div>
+                <div class="kv"><span>작업량(완료)</span><b id="rep_cur_done">-</b></div>
+                <div class="kv"><span>잔량</span><b id="rep_cur_remain">-</b></div>
+              </div>
+            </div>
 
-      <div class="card-b">
-        <table class="tbl">
-     <colgroup>
-    <col style="width:19%">  <!-- 인보이스 -->
-    <col style="width:21%">  <!-- 국가 -->
-    <col style="width:15%">  <!-- 컨테이너 -->
-    <col style="width:12%">  <!-- 상차위치 -->
-    <col style="width:18%">  <!-- 상차시간 -->
-    <col style="width:15%">  <!-- 상태 -->
-  </colgroup>
+            <!-- 보수작업 (다음달) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">보수작업</div>
+                  <div class="sub">sap_item + bosu</div>
+                </div>
+                <div class="tag">다음달</div>
+              </div>
+              <div class="card-b space-y-2">
+                <div class="kv"><span>작업 예상량</span><b id="rep_next_plan">-</b></div>
+                <div class="kv"><span>작업량(완료)</span><b id="rep_next_done">-</b></div>
+                <div class="kv"><span>잔량</span><b id="rep_next_remain">-</b></div>
+              </div>
+            </div>
 
-  <thead>
-    <tr>
-      <th>인보이스</th>
-      <th>국가</th>
-      <th>컨테이너</th>
-      <th>위치</th>
-      <th>상차시간</th>
-      <th>상태</th>
-    </tr>
-  </thead>
+            <!-- 설비 (당월) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">설비 작업</div>
+                  <div class="sub">daily</div>
+                </div>
+                <div class="tag">당월</div>
+              </div>
+              <div class="card-b space-y-2">
+                <div class="kv"><span>설비 작업량</span><b id="fac_cur_qty">-</b></div>
+                <div class="kv"><span>설비 평균 작업량</span><b id="fac_cur_avg">-</b></div>
+              </div>
+            </div>
 
-  <tbody id="ship_today_tbody">
-    <tr><td colspan="6" class="muted">loading</td></tr>
-  </tbody>
-</table>
+            <!-- 설비 (다음달) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">설비 작업</div>
+                  <div class="sub">daily</div>
+                </div>
+                <div class="tag">다음달</div>
+              </div>
+              <div class="card-b space-y-2">
+                <div class="kv"><span>설비 작업량</span><b id="fac_next_qty">-</b></div>
+                <div class="kv"><span>설비 평균 작업량</span><b id="fac_next_avg">-</b></div>
+              </div>
+            </div>
 
-      </div>
-    </div>
+            <!-- 작업장별 작업수량 (전체누계) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">작업장별 작업수량</div>
+                  <div class="sub">daily · 전체누계</div>
+                </div>
+                <div class="tag">전체누계</div>
+              </div>
+              <div class="card-b">
+                <table class="tbl">
+                  <colgroup>
+                    <col style="width:40%">
+                    <col style="width:30%">
+                    <col style="width:30%">
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>구분</th>
+                      <th>작업량</th>
+                      <th>평균</th>
+                    </tr>
+                  </thead>
+                  <tbody id="work_total_tbody">
+                    <tr><td class="cut">보수A</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut">보수B</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut">설비</td><td>-</td><td>-</td></tr>
+                    <tr><td class="cut font-extrabold">전체</td><td class="font-extrabold">-</td><td class="font-extrabold">-</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-  </div>
+            <!-- ✅ 재고 합계 (wms) -->
+            <div class="card">
+              <div class="card-h">
+                <div>
+                  <div class="title">재고 합계</div>
+                  <div class="sub">wms · 수량 합계</div>
+                </div>
+                <div class="tag">WMS</div>
+              </div>
+              <div class="card-b space-y-2">
+                <div class="kv"><span>총 수량</span><b id="k_inventory">-</b></div>
+              </div>
+            </div>
 
-  <!-- MIDDLE (xl:5) -->
-  <div class="col-span-12 xl:col-span-5 space-y-3">
-    
-    <!-- 월별 출고 누계 (12개월, 펼쳐짐) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">월별 출고 누계</div>
-          <div class="sub">-------</div>
-        </div>
-        <div class="tag">누계</div>
-      </div>
-
-      <div class="card-b">
-        <table class="tbl">
-          <colgroup>
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>월</th>
-              <th class="num">20pt</th>
-              <th class="num">40pt</th>
-              <th class="num">LCL</th>
-              <th class="num">합계</th>
-            </tr>
-          </thead>
-          <tbody id="ship_monthly_tbody">
-            <tr><td colspan="5" class="muted">loading</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 출고정보 (오늘기준 7일, 펼쳐짐) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">출고정보 (오늘기준 7일 내역)</div>
-          <div class="sub">-------</div>
-        </div>
-        <div class="tag">7일</div>
-      </div>
-
-      <div class="card-b">
-        <table class="tbl">
-          <colgroup>
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-            <col style="width:20%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>날짜</th>
-              <th class="num">20pt</th>
-              <th class="num">40pt</th>
-              <th class="num">LCL</th>
-              <th class="num">합계</th>
-            </tr>
-          </thead>
-          <tbody id="ship_7days_tbody">
-            <tr><td colspan="5" class="muted">loading</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-
-  </div>
-
-  <!-- RIGHT (xl:3) smaller -->
-  <div class="col-span-12 xl:col-span-3 space-y-3 mini">
-
-    <!-- 보수작업 (당월) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">보수작업</div>
-          <div class="sub">record CSV · 연동 예정</div>
-        </div>
-        <div class="tag">당월</div>
-      </div>
-      <div class="card-b space-y-2">
-        <div class="kv"><span>작업 예상량</span><b id="rep_cur_plan">0</b></div>
-        <div class="kv"><span>작업량(완료)</span><b id="rep_cur_done">0</b></div>
-        <div class="kv"><span>잔량</span><b id="rep_cur_remain">0</b></div>
-      </div>
-    </div>
-
-    <!-- 보수작업 (다음달) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">보수작업</div>
-          <div class="sub">record CSV · 연동 예정</div>
-        </div>
-        <div class="tag">다음달</div>
-      </div>
-      <div class="card-b space-y-2">
-        <div class="kv"><span>작업 예상량</span><b id="rep_next_plan">0</b></div>
-        <div class="kv"><span>작업량(완료)</span><b id="rep_next_done">0</b></div>
-        <div class="kv"><span>잔량</span><b id="rep_next_remain">0</b></div>
-      </div>
-    </div>
-
-    <!-- 설비 (당월) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">설비 작업</div>
-          <div class="sub">record CSV · 연동 예정</div>
-        </div>
-        <div class="tag">당월</div>
-      </div>
-      <div class="card-b space-y-2">
-        <div class="kv"><span>설비 작업량</span><b id="fac_cur_qty">0</b></div>
-        <div class="kv"><span>설비 평균 작업량</span><b id="fac_cur_avg">0</b></div>
-      </div>
-    </div>
-
-    <!-- 설비 (다음달) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">설비 작업</div>
-          <div class="sub">record CSV · 연동 예정</div>
-        </div>
-        <div class="tag">다음달</div>
-      </div>
-      <div class="card-b space-y-2">
-        <div class="kv"><span>설비 작업량</span><b id="fac_next_qty">0</b></div>
-        <div class="kv"><span>설비 평균 작업량</span><b id="fac_next_avg">0</b></div>
-      </div>
-    </div>
-
-    <!-- 작업장별 작업수량 (전체누계) -->
-    <div class="card">
-      <div class="card-h">
-        <div>
-          <div class="title">작업장별 작업수량</div>
-          <div class="sub">record CSV · 연동 예정</div>
-        </div>
-        <div class="tag">전체누계</div>
-      </div>
-
-      <div class="card-b">
-        <table class="tbl">
-          <colgroup>
-            <col style="width:40%">
-            <col style="width:30%">
-            <col style="width:30%">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>구분</th>
-              <th class="num">작업량</th>
-              <th class="num">평균</th>
-            </tr>
-          </thead>
-          <tbody id="work_total_tbody">
-            <tr><td class="cut">보수A</td><td class="num">0</td><td class="num">0</td></tr>
-            <tr><td class="cut">보수B</td><td class="num">0</td><td class="num">0</td></tr>
-            <tr><td class="cut">설비</td><td class="num">0</td><td class="num">0</td></tr>
-            <tr><td class="cut font-extrabold">전체</td><td class="num font-extrabold">0</td><td class="num font-extrabold">0</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-</section>
-
+          </div>
+        </section>
 
       </main>
     </div>
   </div>
 
-  
-
   <!-- =========================
-        JS: 사이드바 + 시계 + 풀스크린 
+        JS: 사이드바 + 시계 + 풀스크린 (그대로)
   ========================== -->
   <script>
-    // Sidebar Toggle
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebarOverlay");
     const btnSidebar = document.getElementById("btnSidebar");
@@ -439,21 +505,18 @@
       overlay && overlay.classList.remove("hidden");
       document.body.style.overflow = "hidden";
     }
-
     function closeSidebar() {
       if (!sidebar) return;
       sidebar.classList.add("-translate-x-full");
       overlay && overlay.classList.add("hidden");
       document.body.style.overflow = "";
     }
-
     btnSidebar && btnSidebar.addEventListener("click", () => {
       if (!sidebar) return;
       const isClosed = sidebar.classList.contains("-translate-x-full");
       if (isClosed) openSidebar();
       else closeSidebar();
     });
-
     overlay && overlay.addEventListener("click", closeSidebar);
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeSidebar();
