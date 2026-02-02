@@ -600,5 +600,69 @@ async function init(){
     el.textContent = `${hh}:${mm}:${ss}`;
   }
 }
+/* =========================
+   ⏱ 무깜빡임 데이터 갱신
+========================= */
+
+const DATA_REFRESH_MIN = 30;
+const DATA_REFRESH_MS = DATA_REFRESH_MIN * 60 * 1000;
+
+let _refreshing = false;
+
+async function refreshAll() {
+  if (_refreshing) return;
+  _refreshing = true;
+
+  try {
+    await Promise.allSettled([
+      renderShipTotal?.(),
+      renderShipTodayAll?.(),
+      renderShipMonthly?.(),
+      renderShip7Days?.(),
+
+      renderRepairCurrent?.(),
+      renderRepairNext?.(),
+      renderFacilityCurrent?.(),
+      renderFacilityNext?.(),
+
+      renderWorkplaceTotal?.(),
+      renderInventorySum?.(),
+    ]);
+
+    // 마지막 갱신 시간 표시
+    const updatedSpan =
+      document.querySelector("#boardBar span.font-extrabold.text-sky-700");
+    if (updatedSpan) {
+      const now = new Date();
+      const fmt = new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      updatedSpan.textContent = fmt.format(now);
+    }
+
+  } catch (e) {
+    console.warn("refreshAll error:", e);
+  } finally {
+    _refreshing = false;
+  }
+}
+
+/* =========================
+   🚀 초기화
+========================= */
+
+function init() {
+  // 기존 init 안에 있던 코드들 그대로 유지
+  // (이벤트 바인딩, 초기 변수 세팅 등)
+
+  // ✅ 최초 1회 데이터 로딩
+  refreshAll();
+
+  // ✅ 30분마다 무깜빡임 갱신
+  setInterval(refreshAll, DATA_REFRESH_MS);
+}
+
 
 document.addEventListener("DOMContentLoaded", init);
