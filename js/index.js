@@ -662,11 +662,17 @@ async function renderSystemCards() {
 }
 
 /* =====================================================
-   7) 작업장별 작업수량 (전체 누계) - daily
+   7) 작업장별 작업수량 (전체 누계) - daily (✅ 전체 누적)
+   - 보수A: D열 전체합
+   - 보수B: E열 전체합
+   - 설비 : F열 전체합
+   - 평균  : (합계 / 작업일)  ※ 작업일=해당 구분 값이 0보다 큰 날짜 수
 ===================================================== */
 async function renderWorkplaceTotal() {
   const tb = $("workplace_total_tbody");
-  const card = pickCard("작업장별 작업수량", "전체누계") || pickCard("작업장별 작업수량", "전체");
+  const card =
+    pickCard("작업장별 작업수량", "전체누계") ||
+    pickCard("작업장별 작업수량", "전체");
 
   const text = await fetchText(URL_DAILY);
   const rows = parseCsv(text);
@@ -677,35 +683,38 @@ async function renderWorkplaceTotal() {
   const COL_S = 5;    // F (설비)
 
   let sA = 0, sB = 0, sS = 0;
-  const dA = new Set();
-  const dB = new Set();
-  const dS = new Set();
-  const dAll = new Set();
+
+  // ✅ 작업일(해당 값이 있는 날) 카운트
+  const daysA = new Set();
+  const daysB = new Set();
+  const daysS = new Set();
+  const daysAll = new Set();
 
   for (const r of rows) {
     const d = toYMD(r?.[COL_DATE]);
-    if (!d || d.includes("날짜")) continue;
+    if (!d || d.includes("날짜")) continue;     // 헤더/빈값 스킵
 
+    // ✅ 오늘/기간 필터 절대 없음 = 전체 누적
     const a = toNum(r?.[COL_A]);
     const b = toNum(r?.[COL_B]);
     const s = toNum(r?.[COL_S]);
 
     sA += a; sB += b; sS += s;
 
-    if (a > 0) dA.add(d);
-    if (b > 0) dB.add(d);
-    if (s > 0) dS.add(d);
-    if (a > 0 || b > 0 || s > 0) dAll.add(d);
+    if (a > 0) daysA.add(d);
+    if (b > 0) daysB.add(d);
+    if (s > 0) daysS.add(d);
+    if (a > 0 || b > 0 || s > 0) daysAll.add(d);
   }
 
-  const avgA = dA.size ? (sA / dA.size) : 0;
-  const avgB = dB.size ? (sB / dB.size) : 0;
-  const avgS = dS.size ? (sS / dS.size) : 0;
+  const avgA = daysA.size ? (sA / daysA.size) : 0;
+  const avgB = daysB.size ? (sB / daysB.size) : 0;
+  const avgS = daysS.size ? (sS / daysS.size) : 0;
 
   const sAll = sA + sB + sS;
-  const avgAll = dAll.size ? (sAll / dAll.size) : 0;
+  const avgAll = daysAll.size ? (sAll / daysAll.size) : 0;
 
-  // ✅ tbody 있으면 tbody 채움
+  // ✅ tbody 있으면 표에 출력
   if (tb) {
     tb.innerHTML = `
       <tr>
@@ -731,13 +740,14 @@ async function renderWorkplaceTotal() {
     `;
   }
 
-  // ✅ 카드 KV 구조일 수도 있으니(혹시) 대비
-  // (라벨을 못 찾으면 그냥 스킵)
+  // ✅ (혹시 카드 KV 구조면) 라벨 기반으로도 세팅 시도
+  // 라벨이 정확히 안 맞으면 그냥 무시됨
   setKvValue(card, "보수A", sA);
   setKvValue(card, "보수B", sB);
   setKvValue(card, "설비", sS);
   setKvValue(card, "전체", sAll);
 }
+
 
 /* =========================
    ✅ Run All
