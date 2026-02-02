@@ -93,22 +93,42 @@
   border-collapse:collapse;
   table-layout:fixed;
 }
-.tbl th, .tbl td{
-  padding:8px 10px;           /* ✅ 살짝 컴팩트 */
+
+.tbl th,
+.tbl td{
+  padding:8px 10px;
   border-top:1px solid #eef2f7;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
   vertical-align:middle;
+
+  /* ✅ 폰트 통일 */
+  font-size:13px;
+  font-weight:600;
+  color:#0f172a;
+  letter-spacing:-0.1px;
 }
+
+/* 헤더는 톤만 살짝 연하게 (크기 동일) */
 .tbl thead th{
   border-top:none;
-  font-size:12px;
-  color:#64748b;
-  font-weight:800;
+  color:#475569;
   text-align:center;
 }
-.tbl td{ text-align:center; font-variant-numeric: tabular-nums; }
+
+/* 숫자 가독성 */
+.tbl td{
+  text-align:center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 첫 컬럼만 왼쪽 정렬 */
+.tbl th:first-child,
+.tbl td:first-child{
+  text-align:left;
+}
+
 
 /* ✅ 첫 컬럼(구분/월/날짜) 왼쪽정렬 + 자동 ... */
 .tbl td:first-child, .tbl th:first-child{
