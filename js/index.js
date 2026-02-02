@@ -670,7 +670,7 @@ async function renderSystemCards() {
      ※ 작업일수 = 해당 구분 값이 0보다 큰 날짜 수
 ===================================================== */
 async function renderWorkplaceTotal() {
-  const tb = document.getElementById("workplace_total_tbody");
+  const tb = document.getElementById("work_total_tbody");
   if (!tb) return;
 
   let text, rows;
