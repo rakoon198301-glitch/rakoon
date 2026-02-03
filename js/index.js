@@ -438,57 +438,72 @@ async function renderRepairCards(){
 }
 
 // =====================================================
-// 6) 설비 작업 (당월/다음달) - daily
+// 6) 설비 작업 (전월/당월) - daily
 //   - 날짜 A열
 //   - 설비 작업량: F열(5)
-//   - 평균: 작업량 / 작업일(해당월에서 설비값>0인 날짜 수)
+//   - 평균: 합계 / 작업일수(해당월에서 설비값>0인 날짜 수)
 // =====================================================
 async function renderFacilityCards(){
-  const elCurQty = $("fac_cur_qty");
-  const elCurAvg = $("fac_cur_avg");
-  const elNextQty = $("fac_next_qty");
-  const elNextAvg = $("fac_next_avg");
+  
+  // - fac_now_*  => "전월" 카드에 표시
+  // - fac_next_* => "당월" 카드에 표시
+  const elPrevQty = $("fac_now_qty");
+  const elPrevAvg = $("fac_now_avg");
+  const elCurQty  = $("fac_next_qty");
+  const elCurAvg  = $("fac_next_avg");
 
   const rows = parseCsv(await fetchText(URL_DAILY));
   const COL_DATE = 0;
-  const COL_FAC = 5; // F
+  const COL_FAC  = 5; // F
 
+  // 오늘 기준 연/월
   const today = getKRYMD(0);
   const y = Number(today.slice(0,4));
   const m = Number(today.slice(5,7));
-  const nextY = (m === 12) ? y+1 : y;
-  const nextM = (m === 12) ? 1 : m+1;
 
-  let curSum=0, nextSum=0;
-  const curDays = new Set();
-  const nextDays = new Set();
+  //  전월 계산
+  const prevY = (m === 1) ? y - 1 : y;
+  const prevM = (m === 1) ? 12 : m - 1;
+
+  //  당월(현재월)
+  const curY = y;
+  const curM = m;
+
+  let prevSum = 0, curSum = 0;
+  const prevDays = new Set();
+  const curDays  = new Set();
 
   for(const r of rows){
     const d = toYMD(r?.[COL_DATE]);
     if(!d || d.includes("날짜")) continue;
+
     const yy = Number(d.slice(0,4));
     const mm = Number(d.slice(5,7));
-    const v = toNum(r?.[COL_FAC]);
+    const v  = toNum(r?.[COL_FAC]);
 
-    if(yy===y && mm===m){
-      curSum += v;
-      if(v>0) curDays.add(d);
+    // 전월
+    if(yy === prevY && mm === prevM){
+      prevSum += v;
+      if(v > 0) prevDays.add(d); //  "작업한 날"만 카운트
     }
-    if(yy===nextY && mm===nextM){
-      nextSum += v;
-      if(v>0) nextDays.add(d);
+
+    // 당월
+    if(yy === curY && mm === curM){
+      curSum += v;
+      if(v > 0) curDays.add(d);  //  "작업한 날"만 카운트
     }
   }
 
-  const curAvg = curDays.size ? (curSum / curDays.size) : 0;
-  const nextAvg = nextDays.size ? (nextSum / nextDays.size) : 0;
+  const prevAvg = prevDays.size ? (prevSum / prevDays.size) : 0;
+  const curAvg  = curDays.size  ? (curSum  / curDays.size)  : 0;
 
-  if(elCurQty) elCurQty.textContent = fmt0(curSum);
-  if(elCurAvg) elCurAvg.textContent = fmtAvg(curAvg);
+  if(elPrevQty) elPrevQty.textContent = fmt0(prevSum);
+  if(elPrevAvg) elPrevAvg.textContent = fmtAvg(prevAvg);
 
-  if(elNextQty) elNextQty.textContent = fmt0(nextSum);
-  if(elNextAvg) elNextAvg.textContent = fmtAvg(nextAvg);
+  if(elCurQty)  elCurQty.textContent  = fmt0(curSum);
+  if(elCurAvg)  elCurAvg.textContent  = fmtAvg(curAvg);
 }
+
 
 // =====================================================
 // 7) 작업장별 작업수량 (전체누계) - daily
@@ -577,10 +592,10 @@ async function renderInventorySum(){
    - 실행 로그 추가
 ========================= */
 
-// ✅ 운영: 30분(원래값)
+// 운영: 30분
 // const DATA_REFRESH_MIN = 30;
 
-// ✅ 테스트: 1분으로 바꿔서 동작 확인 후 30으로 복귀
+// 테스트: 1분으로 바꿔서 동작 확인 후 30으로 복귀
 const DATA_REFRESH_MIN = 1;
 
 const DATA_REFRESH_MS = DATA_REFRESH_MIN * 60 * 1000;
@@ -598,13 +613,10 @@ function isAutoRefreshTime() {
   return h >= 6 && h < 20;
 }
 
-// ✅ (선택) 마지막 갱신 시간 표시 — 있으면 표시, 없으면 그냥 패스
+// (선택) 마지막 갱신 시간 표시 — 있으면 표시, 없으면 그냥 패스
 function setLastUpdated() {
-  // 1순위: 네가 예전에 쓰던 자리
   let el = document.querySelector("#boardUpdated");
-  // 2순위: 기존 셀렉터 (남아있는 페이지가 있을 수 있음)
   if (!el) el = document.querySelector("#boardBar span.font-extrabold.text-sky-700");
-  // 3순위: nav.js 상태 영역을 쓰고 싶으면 이거 사용 가능
   // if (!el) el = document.querySelector("#dataUpdated");
 
   if (!el) return;
