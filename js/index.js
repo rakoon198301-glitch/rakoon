@@ -10,8 +10,7 @@ function toNum(v){
 }
 
 /**
- * ✅ 날짜 정규화
- * - 2026-2-3 / 2026.2.3 / 2026/2/3 / 2026-02-03 모두 → 2026-02-03
+ *  * - 2026-2-3 / 2026.2.3 / 2026/2/3 / 2026-02-03 모두 → 2026-02-03
  */
 function toYMD(v){
   let s = (v ?? "").toString().trim();
@@ -49,14 +48,14 @@ function cacheBust(url){
   return `${url}${sep}_ts=${Date.now()}`;
 }
 
-// ✅ nav.js 상태 표시
+//  nav.js 상태 표시
 function navStatus(text){
   if (window.NKG_NAV && typeof window.NKG_NAV.setStatus === "function") {
     window.NKG_NAV.setStatus(text);
   }
 }
 
-// ✅ fetch 재시도 + HTML 응답 차단
+// fetch 재시도 + HTML 응답 차단
 async function fetchText(url, retry=2){
   let lastErr = null;
 
@@ -189,7 +188,7 @@ const URL_WMS =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1992353991&single=true&output=csv";
 
 // =====================================================
-// ✅ Chart instances
+//  Chart instances
 // =====================================================
 let CH_7D = null;
 let CH_MONTH = null;
@@ -198,7 +197,7 @@ function ensureChart(){
   if (!window.Chart) throw new Error("Chart.js not loaded");
 }
 
-// ✅ 개별 막대(그룹형) 옵션
+//  개별 막대(그룹형) 옵션
 function darkGroupedBarOptions(){
   return {
     responsive: true,
@@ -216,12 +215,12 @@ function darkGroupedBarOptions(){
     },
     scales: {
       x: {
-        stacked: false,                 // ✅ 누적 OFF
+        stacked: false,                 //  누적 OFF
         ticks: { color: "rgba(255,255,255,.70)" },
         grid: { display: false }
       },
       y: {
-        stacked: false,                 // ✅ 누적 OFF
+        stacked: false,                 //  누적 OFF
         ticks: { color: "rgba(255,255,255,.70)" },
         grid: { color: "rgba(255,255,255,.08)" }
       }
@@ -230,8 +229,8 @@ function darkGroupedBarOptions(){
 }
 
 
-// ✅ “실선 제거 + 막대(bar) + 누적(stacked)” 업서트
-// ✅ “막대(bar) 개별(그룹형)” 업서트 (누적 X)
+//  “실선 제거 + 막대(bar) + 누적(stacked)” 업서트
+//  “막대(bar) 개별(그룹형)” 업서트 (누적 X)
 function upsertGroupedBarChart(canvasId, chartRef, labels, series){
   ensureChart();
   const el = document.getElementById(canvasId);
@@ -253,7 +252,7 @@ function upsertGroupedBarChart(canvasId, chartRef, labels, series){
       borderWidth: 0,
       borderRadius: 6,
 
-      // ✅ “개별 막대 느낌” 강하게
+      //  “개별 막대 느낌” 강하게
       barThickness: 18,
       maxBarThickness: 26,
       categoryPercentage: 0.7,  // 한 카테고리(하루/월)에서 막대가 차지하는 폭
@@ -316,7 +315,7 @@ async function renderShipTotal(){
 }
 
 // =====================================================
-// 2) 월별 출고 누계 (1~12월) - daily  + ✅ 누적 막대 차트
+// 2) 월별 출고 누계 (1~12월) - daily  +  누적 막대 차트
 // =====================================================
 async function renderShipMonthly(){
   const rows = parseCsv(await fetchText(URL_DAILY));
@@ -364,7 +363,7 @@ async function renderShipMonthly(){
 }
 
 // =====================================================
-// 3) 출고정보 (오늘~미래6일) - daily  + ✅ 누적 막대 차트
+// 3) 출고정보 (오늘~미래6일) - daily  + 누적 막대 차트
 // =====================================================
 async function renderShip7Days(){
   const rows = parseCsv(await fetchText(URL_DAILY));
@@ -407,7 +406,7 @@ async function renderShip7Days(){
 
 // =====================================================
 // 4) 출고 요약 (당일) - sap_doc
-//    ✅ H열 = "배송 의뢰서" 제외
+//     H열 = "배송 의뢰서" 제외
 // =====================================================
 async function renderShipTodayAll(){
   const tb = $("ship_today_tbody");
@@ -447,7 +446,7 @@ async function renderShipTodayAll(){
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
     if(shipDate !== today) continue;
 
-    // ✅ H열 = 배송 의뢰서 제외
+    //  H열 = 배송 의뢰서 제외
     const docType = norm(r?.[COL_TYPE_H]);
     if (docType === "배송 의뢰서") continue;
 
@@ -729,7 +728,7 @@ function setLastUpdated() {
   el.textContent = fmt.format(now);
 }
 
-// ✅ 동시요청이 너무 세면 구글이 튕길 때가 있어서, 2개씩 끊어서 실행
+//  동시요청이 너무 세면 구글이 튕길 때가 있어서, 2개씩 끊어서 실행
 async function runInBatches(fns, batchSize=2){
   const results = [];
   for(let i=0;i<fns.length;i+=batchSize){
