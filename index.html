@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- ✅ Chart.js -->
+  <!-- ✅ Chart.js (stacked neon bar) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
@@ -90,37 +90,7 @@
     .kv span { font-size:12px; font-weight:800; color:#475569; }
     .kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
 
-    /* Dock cards (좌측) */
-    .dock-card{
-      background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
-      color:#fff;
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:18px;
-      padding:14px;
-      box-shadow:0 10px 28px rgba(15,23,42,.20);
-    }
-    .dock-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .dock-title{ font-size:12px; font-weight:950; color:rgba(255,255,255,.90); }
-    .pill{
-      font-size:10px; padding:3px 9px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:rgba(255,255,255,.88);
-      font-weight:900;
-    }
-    .dock-owner{ margin-top:8px; font-size:13px; font-weight:950; color:rgba(255,255,255,.95); }
-    .dock-table{ width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; }
-    .dock-table th{
-      text-align:left; font-size:10px; color:rgba(255,255,255,.65); font-weight:950;
-      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap;
-    }
-    .dock-table td{
-      font-size:11px; color:rgba(255,255,255,.92); font-weight:950;
-      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
-    }
-    .dock-table tr:last-child td{ border-bottom:none; }
-
-    /* ✅ 차트 카드 (캡처 느낌의 다크 전광판 스타일) */
+    /* ✅ 차트 카드 (다크 전광판 느낌) */
     .chart-card{
       background: linear-gradient(180deg, #1b2440 0%, #121a33 100%);
       border:1px solid rgba(255,255,255,.08);
@@ -143,7 +113,7 @@
       white-space:nowrap;
     }
     .chart-b{
-      height: 360px;
+      height: 340px; /* ✅ 여기 높이 조절(예: 320~420) */
       padding:10px 12px 12px;
     }
   </style>
@@ -151,15 +121,14 @@
 
 <body class="min-h-screen">
 
-  <!-- ✅ nav.js (사이드바는 nav.js가 주입/제어) -->
+  <!-- ✅ nav.js (사이드바/오버레이 자동 주입) -->
   <script src="nav.js"></script>
 
-  <!-- ✅ index.js -->
+  <!-- ✅ 대시보드 로직 -->
   <script type="module" src="./js/index.js"></script>
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
     <div class="relative">
-
       <main class="min-w-0">
 
         <!-- 상단바 -->
@@ -167,13 +136,11 @@
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="text-[11px] font-extrabold text-slate-500 tracking-widest">남경 검수시스템</div>
-              <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">
-                DASHBOARD
-              </div>
+              <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">DASHBOARD</div>
             </div>
 
             <div class="flex items-center gap-3">
-              <!-- ✅ MENU 버튼은 nav.js가 PC/모바일 모두 처리 -->
+              <!-- ✅ nav.js가 이 버튼(#btnSidebar)을 잡아서 PC/모바일 토글함 -->
               <button id="btnSidebar"
                 class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
                 MENU
@@ -239,9 +206,10 @@
             </div>
           </div>
 
-          <!-- MIDDLE: 출고 누계 + 작업장별 + 재고 -->
+          <!-- MIDDLE -->
           <div class="col-span-12 xl:col-span-4 space-y-3">
 
+            <!-- 출고 누계 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -275,6 +243,7 @@
               </div>
             </div>
 
+            <!-- 작업장별 작업수량 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -307,6 +276,7 @@
               </div>
             </div>
 
+            <!-- 재고 합계 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -322,9 +292,10 @@
 
           </div>
 
-          <!-- RIGHT: 보수/설비 -->
+          <!-- RIGHT -->
           <div class="col-span-12 xl:col-span-3 space-y-3 mini">
 
+            <!-- 보수작업 (당월) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -340,6 +311,7 @@
               </div>
             </div>
 
+            <!-- 보수작업 (다음달) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -355,6 +327,7 @@
               </div>
             </div>
 
+            <!-- 설비 (전월) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -369,6 +342,7 @@
               </div>
             </div>
 
+            <!-- 설비 (당월) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -388,10 +362,12 @@
 
         <!-- =========================
             ✅ 하단 차트 영역 (50% / 50%)
+            - 7일 출고정보 (stacked bar)
+            - 월별 출고 누계 (stacked bar)
         ========================== -->
         <section class="mt-3 grid grid-cols-12 gap-3">
 
-          <div class="col-span-12 xl:col-span-6">
+          <div class="col-span-12 xl:col-span-5">
             <div class="chart-card">
               <div class="chart-h">
                 <div>
@@ -406,7 +382,7 @@
             </div>
           </div>
 
-          <div class="col-span-12 xl:col-span-6">
+          <div class="col-span-12 xl:col-span-7">
             <div class="chart-card">
               <div class="chart-h">
                 <div>
@@ -427,39 +403,38 @@
     </div>
   </div>
 
-  <!-- ✅ index.html 하단 JS는 "시계/풀스크린"만 (사이드바 토글은 nav.js가 전담) -->
+  <!-- =========================
+        JS: 시계 + 풀스크린
+        (✅ 사이드바 토글/오버레이는 nav.js가 담당하므로 여기서 제거)
+  ========================== -->
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      // Clock (KST)
-      const clockEl = document.getElementById("boardClock");
-      const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
-        timeZone: "Asia/Seoul",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-      function tickClock() {
-        if (clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date());
-      }
-      tickClock();
-      setInterval(tickClock, 1000);
-
-      // Fullscreen
-      const fsBtn = document.getElementById("btnFullscreen");
-      if (fsBtn) {
-        fsBtn.addEventListener("click", async () => {
-          try {
-            if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-            else await document.exitFullscreen();
-          } catch (e) {
-            console.warn("fullscreen failed:", e);
-          }
-        });
-      }
+    // Clock (KST)
+    const clockEl = document.getElementById("boardClock");
+    const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
+    function tickClock() {
+      if (clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date());
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    // Fullscreen
+    const fsBtn = document.getElementById("btnFullscreen");
+    if (fsBtn) {
+      fsBtn.addEventListener("click", async () => {
+        try {
+          if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+          else await document.exitFullscreen();
+        } catch (e) {
+          console.warn("fullscreen failed:", e);
+        }
+      });
+    }
   </script>
 
 </body>
 </html>
-
-
