@@ -173,39 +173,37 @@ async function renderFacilityFromSystem() {
     tbody.innerHTML = "";
 
     // 표시 rows
-    for (const r of showRows) {
-      const status = String(r[COL_STATUS] || "").trim();
+ for (const r of showRows) {
+  const status = String(r[COL_STATUS] || "").trim();
 
-      const tr = document.createElement("tr");
-      tr.className = "rowHover";
+  const tr = document.createElement("tr");
+  tr.className = "rowHover";
 
-      // 작업중 강조
-      if (status === "작업중") {
-        tr.className = "rowHover bg-amber-50";
-      }
+  // 작업중 강조
+  if (status === "작업중") tr.className = "rowHover bg-amber-50";
 
-      const inv = r[COL_INV] || "";
-      const mat = r[COL_MAT] || "";
-      const box = r[COL_BOX] || "";
-      const name = r[COL_NAME] || "";
-      const outb = r[COL_OUTBOX] || "";
-      const inb  = r[COL_INBOX] || "";
-      const sum  = fmt0(r[COL_SUM]);
+  const inv = r[COL_INV] || "";
+  const ctry = r[COL_COUNTRY] || "";   // ✅ 각 행의 국가(B열)
+  const mat = r[COL_MAT] || "";
+  const box = r[COL_BOX] || "";
+  const name = r[COL_NAME] || "";
+  const outb = r[COL_OUTBOX] || "";
+  const inb  = r[COL_INBOX] || "";
+  const sum  = fmt0(r[COL_SUM]);
 
-      tr.innerHTML = `
-          <td>${escapeHtml(inv)}</td>
-          <td>${escapeHtml(country)}</td>   <!-- ✅ 국가 (B열) -->
-          <td>${escapeHtml(mat)}</td>
-          <td>${escapeHtml(box)}</td>
-          <td class="max-w-[520px] truncate">
-               ${escapeHtml(name)}              <!-- ✅ 자재내역 (I열) -->
-          </td>
-          <td style="text-align:right;">${escapeHtml(outb)}</td>
-          <td style="text-align:right;">${escapeHtml(inb)}</td>
-          <td style="text-align:right; font-weight:700;">${sum}</td>
-           `;
-      tbody.appendChild(tr);
-    }
+  tr.innerHTML = `
+    <td>${escapeHtml(inv)}</td>
+    <td>${escapeHtml(ctry)}</td>
+    <td>${escapeHtml(mat)}</td>
+    <td>${escapeHtml(box)}</td>
+    <td class="max-w-[520px] truncate">${escapeHtml(name)}</td>
+    <td style="text-align:right;">${escapeHtml(outb)}</td>
+    <td style="text-align:right;">${escapeHtml(inb)}</td>
+    <td style="text-align:right; font-weight:700;">${sum}</td>
+  `;
+  tbody.appendChild(tr);
+ }
+
 
     // 빈줄 채우기
     const need = maxRows - showRows.length;
