@@ -573,30 +573,40 @@ async function renderInventorySum(){
 
 /* =========================
    ⏱ 무깜빡임 데이터 갱신 (KST 06~20만)
+   - dashboard.html에서도 동작하도록 "마지막 갱신" 의존 제거
+   - 실행 로그 추가
 ========================= */
 
-const DATA_REFRESH_MIN = 30;
+// ✅ 운영: 30분(원래값)
+// const DATA_REFRESH_MIN = 30;
+
+// ✅ 테스트: 1분으로 바꿔서 동작 확인 후 30으로 복귀
+const DATA_REFRESH_MIN = 1;
+
 const DATA_REFRESH_MS = DATA_REFRESH_MIN * 60 * 1000;
 
 let _refreshing = false;
 let _timer = null;
 
 function getKSTHour() {
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const kst = new Date(utc + 9 * 3600000);
-  return kst.getHours(); // 0~23
+  return new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false });
 }
 
-//  06:00~20:00만 자동갱신 (20시는 포함 X)
+// 06:00~20:00만 자동갱신 (20시는 포함 X)
 function isAutoRefreshTime() {
-  const h = getKSTHour();
+  const h = Number(getKSTHour());
   return h >= 6 && h < 20;
 }
 
-//  마지막 갱신 시간 표시 (상단바의 "-" 부분을 찾아서 갱신)
+// ✅ (선택) 마지막 갱신 시간 표시 — 있으면 표시, 없으면 그냥 패스
 function setLastUpdated() {
-  const el = document.querySelector("#boardBar span.font-extrabold.text-sky-700");
+  // 1순위: 네가 예전에 쓰던 자리
+  let el = document.querySelector("#boardUpdated");
+  // 2순위: 기존 셀렉터 (남아있는 페이지가 있을 수 있음)
+  if (!el) el = document.querySelector("#boardBar span.font-extrabold.text-sky-700");
+  // 3순위: nav.js 상태 영역을 쓰고 싶으면 이거 사용 가능
+  // if (!el) el = document.querySelector("#dataUpdated");
+
   if (!el) return;
 
   const now = new Date();
@@ -604,6 +614,8 @@ function setLastUpdated() {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
+    hour12: false
   });
   el.textContent = fmt.format(now);
 }
@@ -612,20 +624,40 @@ async function refreshAll() {
   if (_refreshing) return;
   _refreshing = true;
 
+  const jobs = [
+    ["renderShipTotal", renderShipTotal],
+    ["renderShipTodayAll", renderShipTodayAll],
+    ["renderShipMonthly", renderShipMonthly],
+    ["renderShip7Days", renderShip7Days],
+
+    ["renderRepairCards", renderRepairCards],
+    ["renderFacilityCards", renderFacilityCards],
+    ["renderWorkplaceTotal", renderWorkplaceTotal],
+    ["renderInventorySum", renderInventorySum],
+  ].filter(([, fn]) => typeof fn === "function");
+
+  const nowStamp = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false
+  }).format(new Date());
+
+  console.log(`[REFRESH] start ${nowStamp} | jobs=${jobs.length} | worktime=${isAutoRefreshTime()}`);
+
   try {
-    //  너 파일에 실제 존재하는 함수들만 호출
-    await Promise.allSettled([
-      renderShipTotal?.(),
-      renderShipTodayAll?.(),
-      renderShipMonthly?.(),
-      renderShip7Days?.(),
+    const results = await Promise.allSettled(
+      jobs.map(([, fn]) => Promise.resolve().then(fn))
+    );
 
-      renderRepairCards?.(),
-      renderFacilityCards?.(),
-      renderWorkplaceTotal?.(),
-      renderInventorySum?.(),
-    ]);
+    const ok = results.filter(r => r.status === "fulfilled").length;
+    const fail = results.filter(r => r.status === "rejected").length;
 
+    if (fail) {
+      console.warn("[REFRESH] some jobs failed:", results);
+    }
+
+    console.log(`[REFRESH] done | ok=${ok} fail=${fail}`);
     setLastUpdated();
   } catch (e) {
     console.warn("refreshAll error:", e);
@@ -641,30 +673,31 @@ function startAutoRefresh() {
 
   // 근무시간이면 타이머 시작
   if (isAutoRefreshTime()) {
+    console.log(`[REFRESH] timer ON (${DATA_REFRESH_MIN}min)`);
     _timer = setInterval(() => {
-      // 근무시간 벗어나면 자동으로 중지
+      // 근무시간 벗어나면 자동 중지
       if (!isAutoRefreshTime()) {
+        console.log("[REFRESH] timer OFF (out of worktime)");
         if (_timer) clearInterval(_timer);
         _timer = null;
         return;
       }
       refreshAll();
     }, DATA_REFRESH_MS);
+  } else {
+    console.log("[REFRESH] timer OFF (not worktime)");
   }
 }
 
 function init() {
-  //  최초 1회 로딩은 항상 실행 (야간에도 화면은 최신으로 한 번 맞춰줌)
+  // 최초 1회 로딩은 항상 실행
   refreshAll();
 
-  //  근무시간(06~20)만 30분 갱신
+  // 근무시간(06~20)만 갱신
   startAutoRefresh();
 
-  //  시간이 06/20 넘어갈 때 타이머 on/off 되도록 5분마다 체크
+  // 시간이 06/20 넘어갈 때 타이머 on/off 되도록 5분마다 체크
   setInterval(startAutoRefresh, 5 * 60 * 1000);
 }
-
-
-
 
 document.addEventListener("DOMContentLoaded", init);
