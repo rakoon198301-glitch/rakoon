@@ -198,8 +198,8 @@ function ensureChart(){
   if (!window.Chart) throw new Error("Chart.js not loaded");
 }
 
-// ✅ 누적 막대 전용 옵션 (다크 전광판 + 물량감)
-function darkStackedBarOptions(){
+// ✅ 개별 막대(그룹형) 옵션
+function darkGroupedBarOptions(){
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -216,12 +216,12 @@ function darkStackedBarOptions(){
     },
     scales: {
       x: {
-        stacked: true,
+        stacked: false,                 // ✅ 누적 OFF
         ticks: { color: "rgba(255,255,255,.70)" },
         grid: { display: false }
       },
       y: {
-        stacked: true,
+        stacked: false,                 // ✅ 누적 OFF
         ticks: { color: "rgba(255,255,255,.70)" },
         grid: { color: "rgba(255,255,255,.08)" }
       }
@@ -229,8 +229,10 @@ function darkStackedBarOptions(){
   };
 }
 
+
 // ✅ “실선 제거 + 막대(bar) + 누적(stacked)” 업서트
-function upsertStackedBarChart(canvasId, chartRef, labels, series){
+// ✅ “막대(bar) 개별(그룹형)” 업서트 (누적 X)
+function upsertGroupedBarChart(canvasId, chartRef, labels, series){
   ensureChart();
   const el = document.getElementById(canvasId);
   if(!el) return chartRef;
@@ -249,17 +251,20 @@ function upsertStackedBarChart(canvasId, chartRef, labels, series){
       data: s.data,
       backgroundColor: NEON[s.label] || "rgba(255,255,255,.35)",
       borderWidth: 0,
-      borderRadius: 6,      // 막대 모서리 둥글게
-      barThickness: 20,     // “물량감” (월별은 자동으로 좁아질 수 있음)
-      maxBarThickness: 28,
-      stack: "ship"
+      borderRadius: 6,
+
+      // ✅ “개별 막대 느낌” 강하게
+      barThickness: 18,
+      maxBarThickness: 26,
+      categoryPercentage: 0.7,  // 한 카테고리(하루/월)에서 막대가 차지하는 폭
+      barPercentage: 0.9        // 카테고리 내에서 막대 폭 비율
     }))
   };
 
   if(chartRef){
     chartRef.data.labels = labels;
     chartRef.data.datasets = data.datasets;
-    chartRef.options = darkStackedBarOptions();
+    chartRef.options = darkGroupedBarOptions();
     chartRef.update();
     return chartRef;
   }
@@ -267,9 +272,10 @@ function upsertStackedBarChart(canvasId, chartRef, labels, series){
   return new Chart(el.getContext("2d"), {
     type: "bar",
     data,
-    options: darkStackedBarOptions()
+    options: darkGroupedBarOptions()
   });
 }
+
 
 // =====================================================
 // 1) 출고 누계 (전체) - daily
@@ -349,11 +355,12 @@ async function renderShipMonthly(){
     dlcl.push(o.slcl);
   }
 
-  CH_MONTH = upsertStackedBarChart("chart_ship_monthly", CH_MONTH, labels, [
-    { label: "40PT", data: d40 },
-    { label: "20PT", data: d20 },
-    { label: "LCL",  data: dlcl },
-  ]);
+  CH_MONTH = upsertGroupedBarChart("chart_ship_monthly", CH_MONTH, labels, [
+  { label: "40PT", data: d40 },
+  { label: "20PT", data: d20 },
+  { label: "LCL",  data: dlcl },
+]);
+
 }
 
 // =====================================================
@@ -390,11 +397,12 @@ async function renderShip7Days(){
   const d40 = days.map(o => o.s40);
   const dlcl = days.map(o => o.slcl);
 
-  CH_7D = upsertStackedBarChart("chart_ship_7days", CH_7D, labels, [
-    { label: "40PT", data: d40 },
-    { label: "20PT", data: d20 },
-    { label: "LCL",  data: dlcl },
-  ]);
+  CH_7D = upsertGroupedBarChart("chart_ship_7days", CH_7D, labels, [
+  { label: "40PT", data: d40 },
+  { label: "20PT", data: d20 },
+  { label: "LCL",  data: dlcl },
+]);
+
 }
 
 // =====================================================
