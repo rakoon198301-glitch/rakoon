@@ -437,16 +437,7 @@ async function renderRepairCards(){
   if(elNextRemain) elNextRemain.textContent = fmt0(nextRemain);
 }
 
-// =====================================================
-// 6) 설비 작업 (전월/당월) - daily
-//   - 날짜 A열
-//   - 설비 작업량: F열(5)
-//   - 평균: 합계 / 작업일수(해당월에서 설비값>0인 날짜 수)
-// =====================================================
 async function renderFacilityCards(){
-  
-  // - fac_now_*  => "전월" 카드에 표시
-  // - fac_next_* => "당월" 카드에 표시
   const elPrevQty = $("fac_now_qty");
   const elPrevAvg = $("fac_now_avg");
   const elCurQty  = $("fac_next_qty");
@@ -454,43 +445,60 @@ async function renderFacilityCards(){
 
   const rows = parseCsv(await fetchText(URL_DAILY));
   const COL_DATE = 0;
-  const COL_FAC  = 5; // F
+  const COL_FAC  = 5;
 
-  // 오늘 기준 연/월
-  const today = getKRYMD(0);
+  //  오늘 기준 연/월
+  const today = getKRYMD(0); // "YYYY-MM-DD" 기대
   const y = Number(today.slice(0,4));
   const m = Number(today.slice(5,7));
 
-  //  전월 계산
+  //  전월
   const prevY = (m === 1) ? y - 1 : y;
   const prevM = (m === 1) ? 12 : m - 1;
 
-  //  당월(현재월)
+  //  당월
   const curY = y;
   const curM = m;
+
+  //  날짜 정규화(어떤 포맷이든 YYYY-MM-DD로)
+  function normYMD(x){
+    if(!x) return "";
+    let s = String(x).trim();
+    if(!s) return "";
+    if(s.includes("날짜")) return "";
+
+    // 2026.1.3 / 2026/01/03 / 2026-1-3 등을 모두 처리
+    s = s.replace(/\./g, "-").replace(/\//g, "-").replace(/\s+/g, "");
+
+    const m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if(!m1) return "";
+
+    const yy = m1[1];
+    const mm = String(m1[2]).padStart(2,"0");
+    const dd = String(m1[3]).padStart(2,"0");
+    return `${yy}-${mm}-${dd}`;
+  }
 
   let prevSum = 0, curSum = 0;
   const prevDays = new Set();
   const curDays  = new Set();
 
   for(const r of rows){
-    const d = toYMD(r?.[COL_DATE]);
-    if(!d || d.includes("날짜")) continue;
+    const d = normYMD(r?.[COL_DATE]);
+    if(!d) continue;
 
     const yy = Number(d.slice(0,4));
     const mm = Number(d.slice(5,7));
-    const v  = toNum(r?.[COL_FAC]);
+    const v  = toNum(r?.[COL_FAC]); // 기존 toNum 그대로 사용
 
-    // 전월
     if(yy === prevY && mm === prevM){
       prevSum += v;
-      if(v > 0) prevDays.add(d); //  "작업한 날"만 카운트
+      if(v > 0) prevDays.add(d);
     }
 
-    // 당월
     if(yy === curY && mm === curM){
       curSum += v;
-      if(v > 0) curDays.add(d);  //  "작업한 날"만 카운트
+      if(v > 0) curDays.add(d);
     }
   }
 
@@ -502,7 +510,12 @@ async function renderFacilityCards(){
 
   if(elCurQty)  elCurQty.textContent  = fmt0(curSum);
   if(elCurAvg)  elCurAvg.textContent  = fmtAvg(curAvg);
+
+  //  디버그(전월이 안 잡힐 때 원인 바로 보이게)
+  console.log("[FAC] prev", {prevY, prevM, prevSum, prevDays: prevDays.size});
+  console.log("[FAC] cur ", {curY, curM, curSum, curDays: curDays.size});
 }
+
 
 
 // =====================================================
