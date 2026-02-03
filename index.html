@@ -12,34 +12,115 @@
   <style>
     body { background:#eef1f5; }
 
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .card-h { padding: 8px 10px; border-bottom:1px solid #f1f5f9; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    /* 카드 /헤더 간격  */
+    .card {
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
+    .card-h {
+      padding: 8px 10px;
+      border-bottom:1px solid #f1f5f9;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
     .card-b { padding: 8px 10px; }
 
     .title { font-size:12px; font-weight:900; color:#0f172a; line-height:1.2; }
     .sub   { font-size:11px; font-weight:700; color:#64748b; line-height:1.2; margin-top:2px; }
     .tag   { font-size:11px; font-weight:800; color:#64748b; white-space:nowrap; }
 
-    .tbl{ width:100%; border-collapse:collapse; table-layout:fixed; }
-    .tbl th, .tbl td{
-      padding:8px 10px; border-top:1px solid #eef2f7;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; vertical-align:middle;
-      font-size:13px; font-weight:600; color:#0f172a; letter-spacing:-0.1px;
+    /*  테이블: 폰트/간격  */
+    .tbl{
+      width:100%;
+      border-collapse:collapse;
+      table-layout:fixed;
     }
-    .tbl thead th{ border-top:none; color:#475569; text-align:center; font-weight:700; }
-    .tbl td{ text-align:center; font-variant-numeric: tabular-nums; }
-    .tbl th:first-child, .tbl td:first-child{ text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .tbl th,
+    .tbl td{
+      padding:8px 10px;
+      border-top:1px solid #eef2f7;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      vertical-align:middle;
 
-    .cut{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .muted{ color:#94a3b8; font-weight:700; text-align:center; padding:14px 10px; }
+      font-size:13px;
+      font-weight:600;
+      color:#0f172a;
+      letter-spacing:-0.1px;
+    }
+    .tbl thead th{
+      border-top:none;
+      color:#475569;
+      text-align:center;
+      font-weight:700;
+    }
+    .tbl td{
+      text-align:center;
+      font-variant-numeric: tabular-nums;
+    }
+    .tbl th:first-child,
+    .tbl td:first-child{
+      text-align:left;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
 
+    .cut{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .muted{
+      color:#94a3b8;
+      font-weight:700;
+      text-align:center;
+      padding:14px 10px;
+    }
+
+    /* 오른쪽 작은 카드 */
     .mini .card-h { padding:8px 10px; }
     .mini .card-b { padding:10px; }
     .kv { display:flex; align-items:center; justify-content:space-between; }
     .kv span { font-size:12px; font-weight:800; color:#475569; }
     .kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
 
-    /* ✅ 차트 카드 (캡처 느낌 다크 스타일) */
+    /* Dock cards (좌측) */
+    .dock-card{
+      background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:14px;
+      box-shadow:0 10px 28px rgba(15,23,42,.20);
+    }
+    .dock-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .dock-title{ font-size:12px; font-weight:950; color:rgba(255,255,255,.90); }
+    .pill{
+      font-size:10px; padding:3px 9px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.88);
+      font-weight:900;
+    }
+    .dock-owner{ margin-top:8px; font-size:13px; font-weight:950; color:rgba(255,255,255,.95); }
+    .dock-table{ width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; }
+    .dock-table th{
+      text-align:left; font-size:10px; color:rgba(255,255,255,.65); font-weight:950;
+      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap;
+    }
+    .dock-table td{
+      font-size:11px; color:rgba(255,255,255,.92); font-weight:950;
+      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
+    }
+    .dock-table tr:last-child td{ border-bottom:none; }
+
+    /* ✅ 차트 카드 (캡처 느낌의 다크 전광판 스타일) */
     .chart-card{
       background: linear-gradient(180deg, #1b2440 0%, #121a33 100%);
       border:1px solid rgba(255,255,255,.08);
@@ -61,33 +142,24 @@
       background:rgba(255,255,255,.08);
       white-space:nowrap;
     }
-    .chart-b{ height: 360px; padding:10px 12px 12px; }
-
-    /* ✅ fallback sidebar 스타일(필요시 JS가 1회 생성) */
-    #sidebarOverlay{
-      position:fixed; inset:0; background:rgba(15,23,42,.55);
-      z-index:60;
-    }
-    #sidebar{
-      position:fixed; top:0; left:0; height:100vh; width:280px;
-      background:#0A1833; color:#fff; z-index:70;
-      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    .chart-b{
+      height: 360px;
+      padding:10px 12px 12px;
     }
   </style>
 </head>
 
 <body class="min-h-screen">
 
-  <!-- nav.js (공통 네비/사이드바 담당) -->
+  <!-- ✅ nav.js (사이드바는 nav.js가 주입/제어) -->
   <script src="nav.js"></script>
 
-  <!-- index.js -->
+  <!-- ✅ index.js -->
   <script type="module" src="./js/index.js"></script>
-
-  <!-- ✅ nav.js가 사이드바를 안 넣는 경우만: JS가 fallback을 1회 생성함(HTML에는 넣지 않음) -->
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
     <div class="relative">
+
       <main class="min-w-0">
 
         <!-- 상단바 -->
@@ -95,10 +167,13 @@
           <div class="flex items-center justify-between gap-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="text-[11px] font-extrabold text-slate-500 tracking-widest">남경 검수시스템</div>
-              <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">DASHBOARD</div>
+              <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">
+                DASHBOARD
+              </div>
             </div>
 
             <div class="flex items-center gap-3">
+              <!-- ✅ MENU 버튼은 nav.js가 PC/모바일 모두 처리 -->
               <button id="btnSidebar"
                 class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
                 MENU
@@ -107,7 +182,8 @@
               <div class="text-right">
                 <div id="boardClock" class="text-lg md:text-xl font-extrabold tabular-nums text-slate-900">--:--:--</div>
                 <div class="text-[11px] text-slate-500">
-                  마지막 갱신: <span id="dataUpdatedTop" class="font-extrabold text-sky-700">-</span>
+                  마지막 갱신:
+                  <span id="dataUpdatedTop" class="font-extrabold text-sky-700">-</span>
                 </div>
               </div>
 
@@ -120,11 +196,11 @@
         </div>
 
         <!-- =========================
-             상단 3열
+             상단 3열 레이아웃
         ========================== -->
         <section class="grid grid-cols-12 gap-3">
 
-          <!-- LEFT -->
+          <!-- LEFT: 출고 요약 -->
           <div class="col-span-12 xl:col-span-5 space-y-3">
             <div class="card">
               <div class="card-h">
@@ -134,16 +210,25 @@
                 </div>
                 <div class="tag">당일</div>
               </div>
+
               <div class="card-b">
                 <table class="tbl">
                   <colgroup>
-                    <col style="width:19%"><col style="width:21%"><col style="width:15%">
-                    <col style="width:12%"><col style="width:18%"><col style="width:15%">
+                    <col style="width:19%">
+                    <col style="width:21%">
+                    <col style="width:15%">
+                    <col style="width:12%">
+                    <col style="width:18%">
+                    <col style="width:15%">
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>인보이스</th><th>국가</th><th>컨테이너</th>
-                      <th>위치</th><th>상차시간</th><th>작업여부</th>
+                      <th>인보이스</th>
+                      <th>국가</th>
+                      <th>컨테이너</th>
+                      <th>위치</th>
+                      <th>상차시간</th>
+                      <th>작업여부</th>
                     </tr>
                   </thead>
                   <tbody id="ship_today_tbody">
@@ -154,7 +239,7 @@
             </div>
           </div>
 
-          <!-- MIDDLE -->
+          <!-- MIDDLE: 출고 누계 + 작업장별 + 재고 -->
           <div class="col-span-12 xl:col-span-4 space-y-3">
 
             <div class="card">
@@ -168,11 +253,19 @@
               <div class="card-b">
                 <table class="tbl">
                   <colgroup>
-                    <col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%">
+                    <col style="width:28%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
+                    <col style="width:18%">
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>구분</th><th>20pt</th><th>40pt</th><th>LCL</th><th>합계</th>
+                      <th>구분</th>
+                      <th>20pt</th>
+                      <th>40pt</th>
+                      <th>LCL</th>
+                      <th>합계</th>
                     </tr>
                   </thead>
                   <tbody id="ship_total_tbody">
@@ -192,9 +285,17 @@
               </div>
               <div class="card-b">
                 <table class="tbl">
-                  <colgroup><col style="width:20%"><col style="width:40%"><col style="width:40%"></colgroup>
+                  <colgroup>
+                    <col style="width:20%">
+                    <col style="width:40%">
+                    <col style="width:40%">
+                  </colgroup>
                   <thead>
-                    <tr><th>구분</th><th>작업량</th><th>평균</th></tr>
+                    <tr>
+                      <th>구분</th>
+                      <th>작업량</th>
+                      <th>평균</th>
+                    </tr>
                   </thead>
                   <tbody id="work_total_tbody">
                     <tr><td class="cut">보수A</td><td>-</td><td>-</td></tr>
@@ -206,7 +307,7 @@
               </div>
             </div>
 
-            <div class="card mini">
+            <div class="card">
               <div class="card-h">
                 <div>
                   <div class="title">재고 합계</div>
@@ -221,12 +322,15 @@
 
           </div>
 
-          <!-- RIGHT -->
+          <!-- RIGHT: 보수/설비 -->
           <div class="col-span-12 xl:col-span-3 space-y-3 mini">
 
             <div class="card">
               <div class="card-h">
-                <div><div class="title">보수작업</div><div class="sub">sap_item + bosu</div></div>
+                <div>
+                  <div class="title">보수작업</div>
+                  <div class="sub">sap_item + bosu</div>
+                </div>
                 <div class="tag">당월</div>
               </div>
               <div class="card-b space-y-2">
@@ -238,7 +342,10 @@
 
             <div class="card">
               <div class="card-h">
-                <div><div class="title">보수작업</div><div class="sub">sap_item + bosu</div></div>
+                <div>
+                  <div class="title">보수작업</div>
+                  <div class="sub">sap_item + bosu</div>
+                </div>
                 <div class="tag">다음달</div>
               </div>
               <div class="card-b space-y-2">
@@ -250,7 +357,10 @@
 
             <div class="card">
               <div class="card-h">
-                <div><div class="title">설비 작업</div><div class="sub">daily</div></div>
+                <div>
+                  <div class="title">설비 작업</div>
+                  <div class="sub">daily</div>
+                </div>
                 <div class="tag">전월</div>
               </div>
               <div class="card-b space-y-2">
@@ -261,7 +371,10 @@
 
             <div class="card">
               <div class="card-h">
-                <div><div class="title">설비 작업</div><div class="sub">daily</div></div>
+                <div>
+                  <div class="title">설비 작업</div>
+                  <div class="sub">daily</div>
+                </div>
                 <div class="tag">당월</div>
               </div>
               <div class="card-b space-y-2">
@@ -274,13 +387,11 @@
         </section>
 
         <!-- =========================
-            ✅ 하단 차트 (50% / 50%)
-            - 7일 출고정보
-            - 월별 출고 누계
+            ✅ 하단 차트 영역 (50% / 50%)
         ========================== -->
         <section class="mt-3 grid grid-cols-12 gap-3">
 
-          <div class="col-span-12 xl:col-span-5">
+          <div class="col-span-12 xl:col-span-6">
             <div class="chart-card">
               <div class="chart-h">
                 <div>
@@ -295,7 +406,7 @@
             </div>
           </div>
 
-          <div class="col-span-12 xl:col-span-7">
+          <div class="col-span-12 xl:col-span-6">
             <div class="chart-card">
               <div class="chart-h">
                 <div>
@@ -316,95 +427,39 @@
     </div>
   </div>
 
-  <!-- =========================
-        JS: 메뉴 + 시계 + 풀스크린 (nav.js 존재해도 “안 꼬이게”)
-  ========================== -->
+  <!-- ✅ index.html 하단 JS는 "시계/풀스크린"만 (사이드바 토글은 nav.js가 전담) -->
   <script>
-    // ✅ nav.js가 사이드바를 만들지 않는 경우만 fallback 1회 생성
-    function ensureFallbackSidebarOnce(){
-      if (document.getElementById("sidebar") && document.getElementById("sidebarOverlay")) return;
-
-      // overlay
-      if (!document.getElementById("sidebarOverlay")) {
-        const ov = document.createElement("div");
-        ov.id = "sidebarOverlay";
-        ov.className = "hidden";
-        document.body.appendChild(ov);
-      }
-
-      // sidebar
-      if (!document.getElementById("sidebar")) {
-        const as = document.createElement("aside");
-        as.id = "sidebar";
-        as.className = "-translate-x-full transition-transform duration-200";
-        as.innerHTML = `
-          <div class="p-4 border-b border-white/10 font-extrabold">MENU</div>
-          <div class="p-3 space-y-2 text-sm">
-            <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/index.html">Dashboard</a>
-            <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/index_repair.html">보수 작업</a>
-            <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/defect.html">결품 조회</a>
-          </div>
-        `;
-        document.body.appendChild(as);
-      }
-    }
-
-    // ✅ “그때그때 DOM 다시 찾기” (nav.js가 나중에 넣어도 OK)
-    function getSidebarEls(){
-      return {
-        sidebar: document.getElementById("sidebar"),
-        overlay: document.getElementById("sidebarOverlay"),
-        btn: document.getElementById("btnSidebar")
-      };
-    }
-
-    function openSidebar(){
-      const { sidebar, overlay } = getSidebarEls();
-      if (!sidebar || !overlay) return;
-      sidebar.classList.remove("-translate-x-full");
-      overlay.classList.remove("hidden");
-      document.body.style.overflow = "hidden";
-    }
-    function closeSidebar(){
-      const { sidebar, overlay } = getSidebarEls();
-      if (!sidebar || !overlay) return;
-      sidebar.classList.add("-translate-x-full");
-      overlay.classList.add("hidden");
-      document.body.style.overflow = "";
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
-      // nav.js가 DOM 삽입을 늦게 하는 경우도 있으니 한 번 보강
-      ensureFallbackSidebarOnce();
-
-      const { btn, overlay } = getSidebarEls();
-      btn && btn.addEventListener("click", () => {
-        const { sidebar } = getSidebarEls();
-        if (!sidebar) return;
-        const isClosed = sidebar.classList.contains("-translate-x-full");
-        if (isClosed) openSidebar();
-        else closeSidebar();
-      });
-      overlay && overlay.addEventListener("click", closeSidebar);
-      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
-
       // Clock (KST)
       const clockEl = document.getElementById("boardClock");
-      const fmt = new Intl.DateTimeFormat("ko-KR", { timeZone:"Asia/Seoul", hour:"2-digit", minute:"2-digit", second:"2-digit" });
-      function tick(){ if(clockEl) clockEl.textContent = fmt.format(new Date()); }
-      tick(); setInterval(tick, 1000);
+      const KST_TIME_FMT = new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      function tickClock() {
+        if (clockEl) clockEl.textContent = KST_TIME_FMT.format(new Date());
+      }
+      tickClock();
+      setInterval(tickClock, 1000);
 
       // Fullscreen
       const fsBtn = document.getElementById("btnFullscreen");
-      fsBtn && fsBtn.addEventListener("click", async () => {
-        try{
-          if(!document.fullscreenElement) await document.documentElement.requestFullscreen();
-          else await document.exitFullscreen();
-        }catch(e){ console.warn("fullscreen failed:", e); }
-      });
+      if (fsBtn) {
+        fsBtn.addEventListener("click", async () => {
+          try {
+            if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+            else await document.exitFullscreen();
+          } catch (e) {
+            console.warn("fullscreen failed:", e);
+          }
+        });
+      }
     });
   </script>
 
 </body>
 </html>
+
 
