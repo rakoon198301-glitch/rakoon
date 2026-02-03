@@ -145,6 +145,7 @@
               <div id="infoName" class="text-2xl font-extrabold tracking-tight truncate">-</div>
             </div>
           </div>
+          
         </section>
 
       </div>
@@ -192,50 +193,63 @@
 
     </section>
 
-    <!-- ✅ 하단: 사진 3장 (데모 호출 제거 → 기본은 비어있음) -->
-    <section class="mt-6 card p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <div class="text-sm font-bold">제품 사진</div>
-          <div class="text-xs text-slate-500">라벨1 / 라벨2 / 박스</div>
-        </div>
-        <div class="text-xs text-slate-500">클릭 하면 크게 보기</div>
-      </div>
+    <!-- ✅ 하단: 사진 3장 (기본은 비어있음) -->
+<section class="mt-6 card p-4">
+  <div class="flex items-center justify-between mb-3">
+    <div>
+      <div class="text-sm font-bold">제품 사진</div>
+      <div class="text-xs text-slate-500">라벨1 / 라벨2 / 박스</div>
+    </div>
+    <div class="text-xs text-slate-500">클릭 하면 크게 보기</div>
+  </div>
 
-      <div class="grid grid-cols-3 gap-4">
+  <div class="grid grid-cols-3 gap-4">
 
-        <figure class="rounded-2xl border bg-white overflow-hidden">
-          <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
-            <span class="text-sm font-semibold">라벨1</span>
-            <span id="badgeFront" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
-          </figcaption>
-          <button class="w-full" onclick="openViewer('imgFront')">
-            <img id="imgFront" class="w-full h-[420px] object-contain bg-slate-100" alt="앞면" src="" onerror="onImgError(this,'badgeFront')" />
-          </button>
-        </figure>
+    <figure class="rounded-2xl border bg-white overflow-hidden">
+      <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
+        <span class="text-sm font-semibold">라벨1</span>
+        <span id="badgeFront" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
+      </figcaption>
+      <button class="w-full" onclick="openViewer('imgFront')">
+        <img id="imgFront"
+             class="w-full h-[420px] object-contain bg-slate-100"
+             alt="앞면"
+             src="about:blank"
+             onerror="onImgError(this,'badgeFront')" />
+      </button>
+    </figure>
 
-        <figure class="rounded-2xl border bg-white overflow-hidden">
-          <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
-            <span class="text-sm font-semibold">라벨2</span>
-            <span id="badgeBack" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
-          </figcaption>
-          <button class="w-full" onclick="openViewer('imgBack')">
-            <img id="imgBack" class="w-full h-[420px] object-contain bg-slate-100" alt="뒷면" src="" onerror="onImgError(this,'badgeBack')" />
-          </button>
-        </figure>
+    <figure class="rounded-2xl border bg-white overflow-hidden">
+      <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
+        <span class="text-sm font-semibold">라벨2</span>
+        <span id="badgeBack" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
+      </figcaption>
+      <button class="w-full" onclick="openViewer('imgBack')">
+        <img id="imgBack"
+             class="w-full h-[420px] object-contain bg-slate-100"
+             alt="뒷면"
+             src="about:blank"
+             onerror="onImgError(this,'badgeBack')" />
+      </button>
+    </figure>
 
-        <figure class="rounded-2xl border bg-white overflow-hidden">
-          <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
-            <span class="text-sm font-semibold">박스</span>
-            <span id="badgeBox" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
-          </figcaption>
-          <button class="w-full" onclick="openViewer('imgBox')">
-            <img id="imgBox" class="w-full h-[420px] object-contain bg-slate-100" alt="박스" src="" onerror="onImgError(this,'badgeBox')" />
-          </button>
-        </figure>
+    <figure class="rounded-2xl border bg-white overflow-hidden">
+      <figcaption class="px-3 py-2 border-b bg-slate-50 flex items-center justify-between">
+        <span class="text-sm font-semibold">박스</span>
+        <span id="badgeBox" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">대기</span>
+      </figcaption>
+      <button class="w-full" onclick="openViewer('imgBox')">
+        <img id="imgBox"
+             class="w-full h-[420px] object-contain bg-slate-100"
+             alt="박스"
+             src="about:blank"
+             onerror="onImgError(this,'badgeBox')" />
+      </button>
+    </figure>
 
-      </div>
-    </section>
+  </div>
+</section>
+
 
   </main>
 
@@ -276,36 +290,48 @@
       }
     })();
 
-    // ✅ 이미지 상태 처리 + 모달(유지)
-    function onImgError(imgEl, badgeId){
-      imgEl.src = "";
-      const badge = document.getElementById(badgeId);
-      badge.textContent = "없음";
-      badge.className = "text-[11px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700";
-    }
 
-    function openViewer(imgId){
-      const src = document.getElementById(imgId).src;
-      if(!src) return;
+  // ✅ 이미지 상태 처리 + 모달(유지)
+  function onImgError(imgEl, badgeId){
+    // ✅ 무한 에러루프 방지
+    imgEl.onerror = null;
 
-      const titleMap = { imgFront:"앞면", imgBack:"뒷면", imgBox:"박스" };
-      document.getElementById("viewerTitle").textContent = titleMap[imgId] || "미리보기";
-      document.getElementById("viewerImg").src = src;
+    // ✅ src="" 금지 (현재 페이지를 이미지로 다시 요청함)
+    imgEl.src = "about:blank";
 
-      const v = document.getElementById("viewer");
-      v.classList.remove("hidden");
-      v.classList.add("flex");
-    }
+    const badge = document.getElementById(badgeId);
+    badge.textContent = "없음";
+    badge.className = "text-[11px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-700";
+  }
 
-    function closeViewer(){
-      const v = document.getElementById("viewer");
-      v.classList.add("hidden");
-      v.classList.remove("flex");
-      document.getElementById("viewerImg").src = "";
-    }
+  function openViewer(imgId){
+    const img = document.getElementById(imgId);
+    const src = img?.src || "";
 
-    document.addEventListener("keydown", (e) => { if(e.key==="Escape") closeViewer(); });
-  </script>
+    // ✅ about:blank / 빈값이면 열지 않기
+    if(!src || src === "about:blank") return;
+
+    const titleMap = { imgFront:"앞면", imgBack:"뒷면", imgBox:"박스" };
+    document.getElementById("viewerTitle").textContent = titleMap[imgId] || "미리보기";
+    document.getElementById("viewerImg").src = src;
+
+    const v = document.getElementById("viewer");
+    v.classList.remove("hidden");
+    v.classList.add("flex");
+  }
+
+  function closeViewer(){
+    const v = document.getElementById("viewer");
+    v.classList.add("hidden");
+    v.classList.remove("flex");
+
+    // ✅ 여기서도 src="" 대신 about:blank 추천
+    document.getElementById("viewerImg").src = "about:blank";
+  }
+
+  document.addEventListener("keydown", (e) => { if(e.key==="Escape") closeViewer(); });
+</script>
+
 
   <!-- ✅ 설비 대시보드 렌더러(실데이터) -->
   <script src="./js/facility_dash.js"></script>
