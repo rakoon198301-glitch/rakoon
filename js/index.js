@@ -407,6 +407,7 @@ async function renderShip7Days(){
 
 // =====================================================
 // 4) 출고 요약 (당일) - sap_doc
+//    ✅ H열 = "배송 의뢰서" 제외
 // =====================================================
 async function renderShipTodayAll(){
   const tb = $("ship_today_tbody");
@@ -415,16 +416,18 @@ async function renderShipTodayAll(){
   const rows = parseCsv(await fetchText(URL_SAP_DOC));
   const today = getKRYMD(0);
 
-  const COL_INV = 0;      // A
-  const COL_COUNTRY = 4;  // E
-  const COL_CONT = 9;     // J
-  const COL_LOC = 16;     // Q
-  const COL_TIME = 19;    // T
+  const COL_INV     = 0;   // A 인보이스
+  const COL_TYPE_H  = 7;   // H 유형 (배송 의뢰서)
+  const COL_COUNTRY = 4;   // E 국가
+  const COL_CONT    = 9;   // J 컨테이너
+  const COL_LOC     = 16;  // Q 위치
+  const COL_TIME    = 19;  // T 상차시간
 
   // 출고일 컬럼 자동탐색
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 80);
   let bestCol = COL_SHIP_DATE, bestHit = 0;
+
   for (const c of [1,2,3,4,5]) {
     let hit = 0;
     for (const r of sample) {
@@ -444,10 +447,14 @@ async function renderShipTodayAll(){
     const shipDate = toYMD(r?.[COL_SHIP_DATE]);
     if(shipDate !== today) continue;
 
+    // ✅ H열 = 배송 의뢰서 제외
+    const docType = norm(r?.[COL_TYPE_H]);
+    if (docType === "배송 의뢰서") continue;
+
     const country = norm(r?.[COL_COUNTRY]);
-    const cont = norm(r?.[COL_CONT]);
-    const loc = norm(r?.[COL_LOC]);
-    const time = norm(r?.[COL_TIME]);
+    const cont    = norm(r?.[COL_CONT]);
+    const loc     = norm(r?.[COL_LOC]);
+    const time    = norm(r?.[COL_TIME]);
 
     const status = getStatusByTime(time);
 
@@ -487,6 +494,9 @@ async function renderShipTodayAll(){
     `;
   }).join("");
 }
+
+
+
 
 // =====================================================
 // 5) 보수작업 (당월/다음달)
