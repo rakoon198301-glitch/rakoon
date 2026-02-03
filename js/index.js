@@ -77,7 +77,6 @@ async function fetchText(url, retry=2){
       return text;
     }catch(e){
       lastErr = e;
-      // 짧은 지연 후 재시도 (0.25s, 0.5s)
       if(i < retry){
         await new Promise(r => setTimeout(r, 250 * (i+1)));
         continue;
@@ -199,15 +198,15 @@ function ensureChart(){
   if (!window.Chart) throw new Error("Chart.js not loaded");
 }
 
-// 차트 공통 옵션 (다크 전광판 느낌)
-function darkChartOptions(){
+// ✅ 누적 막대 전용 옵션 (다크 전광판 + 물량감)
+function darkStackedBarOptions(){
   return {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
     plugins: {
       legend: {
-        labels: { color: "rgba(255,255,255,.80)", boxWidth: 12, boxHeight: 12 }
+        labels: { color: "rgba(255,255,255,.85)", boxWidth: 12, boxHeight: 12 }
       },
       tooltip: {
         enabled: true,
@@ -217,10 +216,12 @@ function darkChartOptions(){
     },
     scales: {
       x: {
+        stacked: true,
         ticks: { color: "rgba(255,255,255,.70)" },
-        grid: { color: "rgba(255,255,255,.08)" }
+        grid: { display: false }
       },
       y: {
+        stacked: true,
         ticks: { color: "rgba(255,255,255,.70)" },
         grid: { color: "rgba(255,255,255,.08)" }
       }
@@ -228,35 +229,45 @@ function darkChartOptions(){
   };
 }
 
-function upsertLineChart(canvasId, chartRef, labels, series){
+// ✅ “실선 제거 + 막대(bar) + 누적(stacked)” 업서트
+function upsertStackedBarChart(canvasId, chartRef, labels, series){
   ensureChart();
   const el = document.getElementById(canvasId);
   if(!el) return chartRef;
+
+  // 형광(네온) 색
+  const NEON = {
+    "40PT": "rgba(255, 61, 245, .90)", // 핑크
+    "20PT": "rgba(0, 229, 255, .90)",  // 블루
+    "LCL":  "rgba(61, 255, 138, .88)"  // 그린
+  };
 
   const data = {
     labels,
     datasets: series.map(s => ({
       label: s.label,
       data: s.data,
-      tension: 0.25,
-      borderWidth: 2,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      fill: false
+      backgroundColor: NEON[s.label] || "rgba(255,255,255,.35)",
+      borderWidth: 0,
+      borderRadius: 6,      // 막대 모서리 둥글게
+      barThickness: 20,     // “물량감” (월별은 자동으로 좁아질 수 있음)
+      maxBarThickness: 28,
+      stack: "ship"
     }))
   };
 
   if(chartRef){
     chartRef.data.labels = labels;
     chartRef.data.datasets = data.datasets;
+    chartRef.options = darkStackedBarOptions();
     chartRef.update();
     return chartRef;
   }
 
   return new Chart(el.getContext("2d"), {
-    type: "line",
+    type: "bar",
     data,
-    options: darkChartOptions()
+    options: darkStackedBarOptions()
   });
 }
 
@@ -299,7 +310,7 @@ async function renderShipTotal(){
 }
 
 // =====================================================
-// 2) 월별 출고 누계 (1~12월) - daily  + ✅ 차트
+// 2) 월별 출고 누계 (1~12월) - daily  + ✅ 누적 막대 차트
 // =====================================================
 async function renderShipMonthly(){
   const rows = parseCsv(await fetchText(URL_DAILY));
@@ -325,7 +336,6 @@ async function renderShipMonthly(){
     o.slcl += toNum(r?.[COL_LCL]);
   }
 
-  // 차트 데이터
   const labels = [];
   const d20 = [];
   const d40 = [];
@@ -339,15 +349,15 @@ async function renderShipMonthly(){
     dlcl.push(o.slcl);
   }
 
-  CH_MONTH = upsertLineChart("chart_ship_monthly", CH_MONTH, labels, [
-    { label: "20PT", data: d20 },
+  CH_MONTH = upsertStackedBarChart("chart_ship_monthly", CH_MONTH, labels, [
     { label: "40PT", data: d40 },
-    { label: "LCL", data: dlcl },
+    { label: "20PT", data: d20 },
+    { label: "LCL",  data: dlcl },
   ]);
 }
 
 // =====================================================
-// 3) 출고정보 (오늘~미래6일) - daily  + ✅ 차트
+// 3) 출고정보 (오늘~미래6일) - daily  + ✅ 누적 막대 차트
 // =====================================================
 async function renderShip7Days(){
   const rows = parseCsv(await fetchText(URL_DAILY));
@@ -375,16 +385,15 @@ async function renderShip7Days(){
     o.slcl += toNum(r?.[COL_LCL]);
   }
 
-  // ✅ 차트
-  const labels = days.map(o => o.ymd.slice(5)); // MM-DD 형태
+  const labels = days.map(o => o.ymd.slice(5)); // MM-DD
   const d20 = days.map(o => o.s20);
   const d40 = days.map(o => o.s40);
   const dlcl = days.map(o => o.slcl);
 
-  CH_7D = upsertLineChart("chart_ship_7days", CH_7D, labels, [
-    { label: "20PT", data: d20 },
+  CH_7D = upsertStackedBarChart("chart_ship_7days", CH_7D, labels, [
     { label: "40PT", data: d40 },
-    { label: "LCL", data: dlcl },
+    { label: "20PT", data: d20 },
+    { label: "LCL",  data: dlcl },
   ]);
 }
 
@@ -404,7 +413,7 @@ async function renderShipTodayAll(){
   const COL_LOC = 16;     // Q
   const COL_TIME = 19;    // T
 
-  // 출고일 컬럼 자동탐색(샘플 기준 today 매칭 많이 나오는 col 선택)
+  // 출고일 컬럼 자동탐색
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 80);
   let bestCol = COL_SHIP_DATE, bestHit = 0;
@@ -473,8 +482,6 @@ async function renderShipTodayAll(){
 
 // =====================================================
 // 5) 보수작업 (당월/다음달)
-//   - 작업 예상량: sap_item 날짜(E열) 기준, T열 합계
-//   - 작업량(완료): bosu 날짜(B열) 기준, J열="완료"인 F열 합계
 // =====================================================
 async function renderRepairCards(){
   const elCurPlan = $("rep_cur_plan");
