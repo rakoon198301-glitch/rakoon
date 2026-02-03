@@ -1,4 +1,9 @@
-// js/index.js
+// js/index.js  (✅ 운영 안정판 완성본)
+// - fetchText: timeout + retry + HTML 응답 감지
+// - URL_DAILY: refresh 사이클당 1회만 fetch (메모이즈)
+// - 보수카드: BOSU만으로 계산 (sap_item 의존 제거)
+// - 실패 시 이전 정상값 유지(옵션)
+
 const fmtKR = new Intl.NumberFormat("ko-KR");
 
 function $(id){ return document.getElementById(id); }
@@ -13,7 +18,7 @@ function toNum(v){
 }
 
 /**
- * ✅ 날짜 정규화 (핵심 안정화)
+ * ✅ 날짜 정규화
  * - 2026-2-3 / 2026.2.3 / 2026/2/3 / 2026-02-03 모두 → 2026-02-03
  */
 function toYMD(v){
@@ -40,7 +45,7 @@ function toYMD(v){
   return s;
 }
 
-//  0이면 '-' 표시
+// 0이면 '-' 표시
 function fmt0(n){
   const v = Number(n || 0);
   return v === 0 ? "-" : fmtKR.format(v);
@@ -50,22 +55,42 @@ function fmtAvg(n){
   return v === 0 ? "-" : fmtKR.format(v);
 }
 
-async function fetchText(url){
-  const res = await fetch(url, { cache:"no-store" });
-  if(!res.ok) throw new Error("HTTP " + res.status);
+// =====================================================
+// ✅ 안정화 fetch: timeout + retry + HTML 응답 감지
+// =====================================================
+async function fetchText(url, { timeoutMs = 12000, retry = 2 } = {}) {
+  for (let attempt = 0; attempt <= retry; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
 
-  const text = await res.text();
+    try {
+      const res = await fetch(url, { cache:"no-store", signal: ctrl.signal });
+      clearTimeout(t);
 
-  // ✅ 구글이 CSV 대신 HTML(권한/차단 페이지)을 주는 경우를 바로 잡아냄
-  const head = text.slice(0, 200).toLowerCase();
-  if (head.includes("<!doctype html") || head.includes("<html")) {
-    throw new Error("CSV 대신 HTML 응답(권한/차단/오류 가능): " + url);
+      if(!res.ok) throw new Error("HTTP " + res.status);
+
+      const text = await res.text();
+
+      const head = text.slice(0, 250).toLowerCase();
+      if (head.includes("<!doctype html") || head.includes("<html")) {
+        throw new Error("CSV 대신 HTML 응답(권한/차단/오류 가능): " + url);
+      }
+
+      return text;
+    } catch (e) {
+      clearTimeout(t);
+
+      if (attempt === retry) throw e;
+
+      // backoff: 0.4s → 0.8s → 1.2s
+      await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+    }
   }
-
-  return text;
 }
 
-//  따옴표 포함 CSV 파서
+// =====================================================
+// CSV 파서(따옴표 포함)
+// =====================================================
 function parseCsv(text){
   const rows = [];
   let row = [];
@@ -102,8 +127,48 @@ function parseCsv(text){
   return rows;
 }
 
+// =====================================================
+// ✅ refresh 사이클에서 URL별 fetch 1회만 (메모이즈)
+// =====================================================
+const _csvMemo = new Map();
+
+async function getCsvRowsOnce(url){
+  if (_csvMemo.has(url)) return _csvMemo.get(url);
+
+  const p = (async () => {
+    const text = await fetchText(url);
+    return parseCsv(text);
+  })();
+
+  _csvMemo.set(url, p);
+  return p;
+}
+
+// (옵션) 실패 시 이전 정상 데이터 유지
+const KEEP_PREV_ON_FAIL = true;
+let _lastGood = {
+  daily: null,
+  sapdoc: null,
+  bosu: null,
+  wms: null
+};
+
+async function getRowsSafe(key, url){
+  try {
+    const rows = await getCsvRowsOnce(url);
+    _lastGood[key] = rows;
+    return rows;
+  } catch (e) {
+    console.warn(`[CSV FAIL] ${key}`, e);
+    if (KEEP_PREV_ON_FAIL && _lastGood[key]) return _lastGood[key];
+    throw e;
+  }
+}
+
+// =====================================================
+// KST 유틸
+// =====================================================
 function getKRYMD(offsetDay=0){
-  // KST 기준
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
   const kst = new Date(utc + 9 * 3600000);
@@ -124,7 +189,6 @@ function getKSTNowHM(){
 function timeToMin(t){
   const s = norm(t);
   if(!s) return 999999;
-  // "07시30분" "07:30" "13시"
   const m1 = s.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
   if(!m1) return 999999;
   const hh = Number(m1[1]||0);
@@ -135,19 +199,13 @@ function getStatusByTime(shipTime){
   const tmin = timeToMin(shipTime);
   if(tmin === 999999) return "미정";
 
-  const nowHM = getKSTNowHM();
-  const nowMin = timeToMin(nowHM);
-
-  //  현재시간이 상차시간보다 빠르면 대기
+  const nowMin = timeToMin(getKSTNowHM());
   if(nowMin < tmin) return "상차대기";
-  //  현재시간이 상차시간~상차시간+120분 사이는 상차중
   if(nowMin >= tmin && nowMin < tmin + 120) return "상차중";
-  //  그 이후는 완료
   return "상차완료";
 }
 function contRank(cont){
   const c = norm(cont).toUpperCase();
-  //  컨테이너 정렬: 20 -> 40 -> LCL -> 기타
   if (c === "20") return 1;
   if (c === "40") return 2;
   if (c.includes("LCL")) return 3;
@@ -155,16 +213,13 @@ function contRank(cont){
 }
 
 // =====================================================
-//  CSV URL
+// CSV URL
 // =====================================================
 const URL_DAILY =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=430924108&single=true&output=csv";
 
 const URL_SAP_DOC =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1210262064&single=true&output=csv";
-
-const URL_SAP_ITEM =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1124687656&single=true&output=csv";
 
 const URL_BOSU =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=617786742&single=true&output=csv";
@@ -173,18 +228,18 @@ const URL_WMS =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vR38uWRSPB1R5tN2dtukAhPMTppV7Y10UkgC4Su5UTXuqokN8vr6qDjHcQVxVzUvaWmWR-FX6xrVm9z/pub?gid=1992353991&single=true&output=csv";
 
 // =====================================================
-// 1) 출고 누계 (전체) - daily
+// 1) 출고 누계(전체) - daily
 //   I(8)=20pt, J(9)=40pt, L(11)=LCL
 // =====================================================
 async function renderShipTotal(){
   const tb = $("ship_total_tbody");
   if(!tb) return;
 
-  const rows = parseCsv(await fetchText(URL_DAILY));
+  const rows = await getRowsSafe("daily", URL_DAILY);
 
-  const COL_20 = 8;  // I
-  const COL_40 = 9;  // J
-  const COL_LCL = 11;// L
+  const COL_20 = 8;
+  const COL_40 = 9;
+  const COL_LCL = 11;
 
   let s20=0, s40=0, slcl=0;
 
@@ -211,14 +266,13 @@ async function renderShipTotal(){
 }
 
 // =====================================================
-// 2) 월별 출고 누계 (1~12월) - daily
-//   A(0)=날짜, I/J/L 합산 후 "월"별 집계
+// 2) 월별 출고 누계(1~12월) - daily
 // =====================================================
 async function renderShipMonthly(){
   const tb = $("ship_monthly_tbody");
   if(!tb) return;
 
-  const rows = parseCsv(await fetchText(URL_DAILY));
+  const rows = await getRowsSafe("daily", URL_DAILY);
 
   const COL_DATE = 0;
   const COL_20 = 8;
@@ -241,11 +295,11 @@ async function renderShipMonthly(){
     o.slcl += toNum(r?.[COL_LCL]);
   }
 
-  const html = [];
-  for(let m=1;m<=12;m++){
+  tb.innerHTML = Array.from({length:12}, (_,i)=>{
+    const m = i+1;
     const o = map.get(m);
     const sum = o.s20 + o.s40 + o.slcl;
-    html.push(`
+    return `
       <tr>
         <td class="cut">${m}월</td>
         <td>${fmt0(o.s20)}</td>
@@ -253,20 +307,18 @@ async function renderShipMonthly(){
         <td>${fmt0(o.slcl)}</td>
         <td class="font-extrabold">${fmt0(sum)}</td>
       </tr>
-    `);
-  }
-  tb.innerHTML = html.join("");
+    `;
+  }).join("");
 }
 
 // =====================================================
-// 3) 출고정보 (오늘~미래6일) - daily
-//   A=날짜, I/J/L
+// 3) 출고정보(오늘~미래6일) - daily
 // =====================================================
 async function renderShip7Days(){
   const tb = $("ship_7days_tbody");
   if(!tb) return;
 
-  const rows = parseCsv(await fetchText(URL_DAILY));
+  const rows = await getRowsSafe("daily", URL_DAILY);
 
   const COL_DATE = 0;
   const COL_20 = 8;
@@ -306,24 +358,22 @@ async function renderShip7Days(){
 }
 
 // =====================================================
-// 4) 출고 요약 (당일) - sap_doc
-//   A(0)=인보이스, E(4)=국가, J(9)=컨테이너, Q(16)=위치, T(19)=상차시간
-//   + 상태 계산 + 정렬(20->40->LCL) + 시간정렬
+// 4) 출고 요약(당일) - sap_doc
 // =====================================================
 async function renderShipTodayAll(){
   const tb = $("ship_today_tbody");
   if(!tb) return;
 
-  const rows = parseCsv(await fetchText(URL_SAP_DOC));
+  const rows = await getRowsSafe("sapdoc", URL_SAP_DOC);
   const today = getKRYMD(0);
 
-  const COL_INV = 0;      // A
-  const COL_COUNTRY = 4;  // E
-  const COL_CONT = 9;     // J
-  const COL_LOC = 16;     // Q
-  const COL_TIME = 19;    // T
+  const COL_INV = 0;
+  const COL_COUNTRY = 4;
+  const COL_CONT = 9;
+  const COL_LOC = 16;
+  const COL_TIME = 19;
 
-  // 출고일 컬럼 자동탐색(샘플 기준 today 매칭 많이 나오는 col 선택)
+  // 출고일 컬럼 자동탐색
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 80);
   let bestCol = COL_SHIP_DATE, bestHit = 0;
@@ -351,10 +401,9 @@ async function renderShipTodayAll(){
     const loc = norm(r?.[COL_LOC]);
     const time = norm(r?.[COL_TIME]);
 
-    const status = getStatusByTime(time);
-
     data.push({
-      inv, country, cont, loc, time, status,
+      inv, country, cont, loc, time,
+      status: getStatusByTime(time),
       _rank: contRank(cont),
       _tmin: timeToMin(time),
     });
@@ -391,10 +440,22 @@ async function renderShipTodayAll(){
 }
 
 // =====================================================
-// 5) 보수작업 (당월/다음달)
-//   - 작업 예상량: sap_item 날짜(E열) 기준, T열 합계
-//   - 작업량(완료): bosu 날짜(B열) 기준, J열="완료"인 F열 합계
+// 5) ✅ 보수작업(당월/다음달) - BOSU만 사용 (안정판)
+// - "출고일" / "작업예상수량" / "작업완료수량" / "작업후잔량" 컬럼을 헤더로 자동탐색
+// - 잔량은 (예상-완료)로 계산(시트 잔량 컬럼이 깨져도 안전)
 // =====================================================
+function detectHeaderIndex(headers, keywords){
+  const lower = (headers || []).map(h => (h ?? "").toString().trim().toLowerCase());
+  for (let i=0;i<lower.length;i++){
+    const s = lower[i];
+    for (const k of keywords){
+      if (s.includes(k)) return i;
+    }
+  }
+  return -1;
+}
+function ymKey(y, m){ return `${y}-${String(m).padStart(2,"0")}`; }
+
 async function renderRepairCards(){
   const elCurPlan = $("rep_cur_plan");
   const elCurDone = $("rep_cur_done");
@@ -404,46 +465,54 @@ async function renderRepairCards(){
   const elNextDone = $("rep_next_done");
   const elNextRemain = $("rep_next_remain");
 
-  // --- plan: sap_item
-  const itemRows = parseCsv(await fetchText(URL_SAP_ITEM));
-  const COL_ITEM_DATE = 4; // E
-  const COL_ITEM_T = 19;   // T
-
   const today = getKRYMD(0);
   const y = Number(today.slice(0,4));
   const m = Number(today.slice(5,7));
-  const nextY = (m === 12) ? y+1 : y;
-  const nextM = (m === 12) ? 1 : m+1;
+  const curYM  = ymKey(y, m);
+  const nextYM = (m === 12) ? ymKey(y+1, 1) : ymKey(y, m+1);
 
-  let curPlan = 0, nextPlan = 0;
-  for(const r of itemRows){
-    const d = toYMD(r?.[COL_ITEM_DATE]);
-    if(!d || d.includes("날짜")) continue;
-    const yy = Number(d.slice(0,4));
-    const mm = Number(d.slice(5,7));
-    const v = toNum(r?.[COL_ITEM_T]);
-    if(yy===y && mm===m) curPlan += v;
-    if(yy===nextY && mm===nextM) nextPlan += v;
+  const rows = await getRowsSafe("bosu", URL_BOSU);
+  if (!rows || rows.length < 2) {
+    if(elCurPlan) elCurPlan.textContent = "-";
+    if(elCurDone) elCurDone.textContent = "-";
+    if(elCurRemain) elCurRemain.textContent = "-";
+    if(elNextPlan) elNextPlan.textContent = "-";
+    if(elNextDone) elNextDone.textContent = "-";
+    if(elNextRemain) elNextRemain.textContent = "-";
+    return;
   }
 
-  // --- done: bosu
-  const bosuRows = parseCsv(await fetchText(URL_BOSU));
-  const COL_BOSU_DATE = 1;   // B
-  const COL_BOSU_DONE = 9;   // J
-  const COL_BOSU_F = 5;      // F
+  const headers = rows[0] || [];
+  let COL_DATE = detectHeaderIndex(headers, ["출고일", "date"]);
+  let COL_PLAN = detectHeaderIndex(headers, ["작업예상수량", "예상", "plan"]);
+  let COL_DONE = detectHeaderIndex(headers, ["작업완료수량", "완료", "done"]);
+  let COL_REM  = detectHeaderIndex(headers, ["작업후잔량", "잔량", "remain"]);
 
-  let curDone = 0, nextDone = 0;
-  for(const r of bosuRows){
-    const d = toYMD(r?.[COL_BOSU_DATE]);
-    if(!d || d.includes("날짜")) continue;
-    const yy = Number(d.slice(0,4));
-    const mm = Number(d.slice(5,7));
-    const st = norm(r?.[COL_BOSU_DONE]);
-    if(st !== "완료") continue;
+  // fallback (너 스샷 기준)
+  if (COL_DATE < 0) COL_DATE = 1; // B
+  if (COL_PLAN < 0) COL_PLAN = 5; // F
+  if (COL_DONE < 0) COL_DONE = 6; // G
+  if (COL_REM  < 0) COL_REM  = 7; // H
 
-    const v = toNum(r?.[COL_BOSU_F]);
-    if(yy===y && mm===m) curDone += v;
-    if(yy===nextY && mm===nextM) nextDone += v;
+  let curPlan = 0, curDone = 0;
+  let nextPlan = 0, nextDone = 0;
+
+  for (let i=1;i<rows.length;i++){
+    const r = rows[i] || [];
+    const ymd = toYMD(r[COL_DATE]);
+    if(!ymd || ymd.includes("날짜")) continue;
+
+    const ym = ymd.slice(0,7);
+    const plan = toNum(r[COL_PLAN]);
+    const done = toNum(r[COL_DONE]);
+
+    if (ym === curYM){
+      curPlan += plan;
+      curDone += done;
+    } else if (ym === nextYM){
+      nextPlan += plan;
+      nextDone += done;
+    }
   }
 
   const curRemain = Math.max(0, curPlan - curDone);
@@ -456,12 +525,12 @@ async function renderRepairCards(){
   if(elNextPlan) elNextPlan.textContent = fmt0(nextPlan);
   if(elNextDone) elNextDone.textContent = fmt0(nextDone);
   if(elNextRemain) elNextRemain.textContent = fmt0(nextRemain);
+
+  console.log("[REPAIR/BOSU]", { curYM, curPlan, curDone, curRemain, nextYM, nextPlan, nextDone, nextRemain, COL_DATE, COL_PLAN, COL_DONE, COL_REM });
 }
 
-
 // =====================================================
-// 6) 설비 작업 (전월/당월) - daily
-//  - 날짜 A열(0), 설비 F열(5)
+// 6) 설비 작업(전월/당월) - daily
 // =====================================================
 async function renderFacilityCards(){
   const elPrevQty = $("fac_cur_qty");   // 전월
@@ -469,7 +538,8 @@ async function renderFacilityCards(){
   const elCurQty  = $("fac_next_qty");  // 당월
   const elCurAvg  = $("fac_next_avg");
 
-  const rows = parseCsv(await fetchText(URL_DAILY));
+  const rows = await getRowsSafe("daily", URL_DAILY);
+
   const COL_DATE = 0;
   const COL_FAC  = 5; // F
 
@@ -513,22 +583,17 @@ async function renderFacilityCards(){
 
   if(elCurQty)  elCurQty.textContent  = fmt0(curSum);
   if(elCurAvg)  elCurAvg.textContent  = fmtAvg(curAvg);
-
-  console.log("[FAC]", {
-    today, prevY, prevM, prevSum, prevDays: prevDays.size,
-    curY, curM, curSum, curDays: curDays.size
-  });
 }
 
 // =====================================================
-// 7) 작업장별 작업수량 (전체누계) - daily
-//   - D(3)=A, E(4)=B, F(5)=설비
+// 7) 작업장별 작업수량(전체누계) - daily
 // =====================================================
 async function renderWorkplaceTotal(){
   const tb = $("work_total_tbody");
   if(!tb) return;
 
-  const rows = parseCsv(await fetchText(URL_DAILY));
+  const rows = await getRowsSafe("daily", URL_DAILY);
+
   const COL_DATE = 0;
   const COL_A = 3; // D
   const COL_B = 4; // E
@@ -558,48 +623,31 @@ async function renderWorkplaceTotal(){
   const avgAll = workDays ? (sAll / workDays) : 0;
 
   tb.innerHTML = `
-    <tr>
-      <td class="cut">보수A</td>
-      <td>${fmt0(sA)}</td>
-      <td>${fmtAvg(avgA)}</td>
-    </tr>
-    <tr>
-      <td class="cut">보수B</td>
-      <td>${fmt0(sB)}</td>
-      <td>${fmtAvg(avgB)}</td>
-    </tr>
-    <tr>
-      <td class="cut">설비</td>
-      <td>${fmt0(sS)}</td>
-      <td>${fmtAvg(avgS)}</td>
-    </tr>
-    <tr>
-      <td class="cut font-extrabold">전체</td>
-      <td class="font-extrabold">${fmt0(sAll)}</td>
-      <td class="font-extrabold">${fmtAvg(avgAll)}</td>
-    </tr>
+    <tr><td class="cut">보수A</td><td>${fmt0(sA)}</td><td>${fmtAvg(avgA)}</td></tr>
+    <tr><td class="cut">보수B</td><td>${fmt0(sB)}</td><td>${fmtAvg(avgB)}</td></tr>
+    <tr><td class="cut">설비</td><td>${fmt0(sS)}</td><td>${fmtAvg(avgS)}</td></tr>
+    <tr><td class="cut font-extrabold">전체</td><td class="font-extrabold">${fmt0(sAll)}</td><td class="font-extrabold">${fmtAvg(avgAll)}</td></tr>
   `;
 }
 
 // =====================================================
-// 8) 재고 합계 (wms) - E(4) 합
+// 8) 재고 합계(wms) - E(4) 합
 // =====================================================
 async function renderInventorySum(){
   const el = $("k_inventory");
   if(!el) return;
 
-  const rows = parseCsv(await fetchText(URL_WMS));
+  const rows = await getRowsSafe("wms", URL_WMS);
+
   const COL_QTY = 4; // E
   let sum = 0;
 
   for(const r of rows){
-    // 헤더 스킵(혹시 "수량" 같은 문자열이면 0으로 처리되어도 괜찮지만 방어)
     const a0 = norm(r?.[0]);
-    if (a0 && (a0.includes("자재") || a0.includes("품목") || a0.includes("CODE"))) {
-      continue;
-    }
+    if (a0 && (a0.includes("자재") || a0.includes("품목") || a0.includes("code"))) continue;
     sum += toNum(r?.[COL_QTY]);
   }
+
   el.textContent = fmt0(sum);
 }
 
@@ -607,10 +655,8 @@ async function renderInventorySum(){
    ⏱ 무깜빡임 데이터 갱신 (KST 06~20만)
 ========================= */
 
-// 운영: 30분으로 바꾸면 됨
+// 운영은 30으로
 // const DATA_REFRESH_MIN = 30;
-
-// 테스트: 1분
 const DATA_REFRESH_MIN = 1;
 
 const DATA_REFRESH_MS = DATA_REFRESH_MIN * 60 * 1000;
@@ -621,17 +667,14 @@ let _timer = null;
 function getKSTHour() {
   return new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false });
 }
-
 function isAutoRefreshTime() {
   const h = Number(getKSTHour());
   return h >= 6 && h < 20;
 }
-
 function setLastUpdated() {
   const el = document.querySelector("#dataUpdatedTop");
   if (!el) return;
 
-  const now = new Date();
   const fmt = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
@@ -639,19 +682,24 @@ function setLastUpdated() {
     second: "2-digit",
     hour12: false
   });
-  el.textContent = fmt.format(now);
+  el.textContent = fmt.format(new Date());
 }
 
 async function refreshAll() {
   if (_refreshing) return;
   _refreshing = true;
 
+  // ✅ 이번 refresh 사이클 URL 메모 초기화
+  _csvMemo.clear();
+
+  // ✅ DAILY 먼저 워밍업(동시 burst 감소)
+  try { await getRowsSafe("daily", URL_DAILY); } catch(e) {}
+
   const jobs = [
     ["renderShipTotal", renderShipTotal],
     ["renderShipTodayAll", renderShipTodayAll],
     ["renderShipMonthly", renderShipMonthly],
     ["renderShip7Days", renderShip7Days],
-
     ["renderRepairCards", renderRepairCards],
     ["renderFacilityCards", renderFacilityCards],
     ["renderWorkplaceTotal", renderWorkplaceTotal],
@@ -675,9 +723,7 @@ async function refreshAll() {
     const ok = results.filter(r => r.status === "fulfilled").length;
     const fail = results.filter(r => r.status === "rejected").length;
 
-    if (fail) {
-      console.warn("[REFRESH] some jobs failed:", results);
-    }
+    if (fail) console.warn("[REFRESH] some jobs failed:", results);
 
     console.log(`[REFRESH] done | ok=${ok} fail=${fail}`);
     setLastUpdated();
