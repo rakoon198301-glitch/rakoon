@@ -241,7 +241,7 @@ function upsertGroupedBarChart(canvasId, chartRef, labels, series){
   const NEON = {
     "40PT": "rgba(255, 61, 245, .90)", // 핑크
     "20PT": "rgba(0, 229, 255, .90)",  // 블루
-    "LCL":  "rgba(226, 228, 142, 0.88)"  // 그린
+    "LCL":  "rgba(154, 241, 136, 0.88)"  // 그린
   };
 
   const data = {
