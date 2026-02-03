@@ -391,17 +391,16 @@ async function renderShipTodayAll(){
 }
 
 // =====================================================
-// 5) 보수작업 카드 (당월/다음달)
-//  - URL_SAP_ITEM : "예상량(Plan)" 추정
-//  - URL_BOSU     : "완료량(Done)" 추정
-//
-// ✅ 컬럼명이 있으면 키워드로 자동탐색
-// ✅ 컬럼명이 없으면 최대한 안전하게 fallback
+// 5) 보수작업 카드 (당월/다음달) ✅ BOSU 기준으로 계산
+//  - 출고일: "출고일" 컬럼 (YYYY-M-D / YYYY.MM.DD / YYYY/MM/DD 다 처리)
+//  - 작업 예상량: "작업예상수량"
+//  - 작업 완료량: "작업완료수량" ( '-' => 0 )
+//  - 잔량: (예상 - 완료) 로 계산 (시트 "작업후잔량"이 있어도 계산이 더 안전)
 // =====================================================
-function ymKey(y,m){ return `${y}-${String(m).padStart(2,"0")}`; }
+function ymKey(y, m){ return `${y}-${String(m).padStart(2,"0")}`; }
 
 function detectHeaderIndex(headers, keywords){
-  const lower = headers.map(h => norm(h).toLowerCase());
+  const lower = (headers || []).map(h => (h ?? "").toString().trim().toLowerCase());
   for (let i=0;i<lower.length;i++){
     const s = lower[i];
     for (const k of keywords){
@@ -411,18 +410,10 @@ function detectHeaderIndex(headers, keywords){
   return -1;
 }
 
-function parseMonthFromAny(v){
-  // "2026-02", "2026/2", "2026.02", "2026-02-03", "2026/2/3" 등에서 yyyy-mm 뽑기
-  const s0 = norm(v);
-  if(!s0) return "";
-  const s = s0.replace(/\s+/g,"").replace(/[./]/g,"-");
-  // yyyy-mm-dd or yyyy-m-d
-  const m1 = s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);
-  if(!m1) return "";
-  const yy = Number(m1[1]);
-  const mm = Number(m1[2]);
-  if(!(yy>=2000 && mm>=1 && mm<=12)) return "";
-  return ymKey(yy, mm);
+function parseYMFromYMD(ymd){
+  const d = toYMD(ymd);            // ✅ 네가 이미 안정화한 toYMD 사용
+  if (!d || d.includes("날짜")) return "";
+  return d.slice(0, 7);            // "YYYY-MM"
 }
 
 async function renderRepairCards(){
@@ -434,82 +425,79 @@ async function renderRepairCards(){
   const elNxtDone = $("rep_next_done");
   const elNxtRem  = $("rep_next_remain");
 
+  // 기준 월(당월/다음달)
   const today = getKRYMD(0);
   const y = Number(today.slice(0,4));
   const m = Number(today.slice(5,7));
 
-  const curYM = ymKey(y,m);
-  const nextYM = (m===12) ? ymKey(y+1,1) : ymKey(y,m+1);
+  const curYM  = ymKey(y, m);
+  const nextYM = (m === 12) ? ymKey(y+1, 1) : ymKey(y, m+1);
 
-  // -----------------------
-  // 1) PLAN: sap_item
-  // -----------------------
-  let curPlan = 0, nextPlan = 0;
-  try {
-    const rows = parseCsv(await fetchText(URL_SAP_ITEM));
-    if (rows.length) {
-      const headers = rows[0] || [];
-      let colMonth = detectHeaderIndex(headers, ["월", "month", "ym", "년월", "기간", "date"]);
-      let colQty   = detectHeaderIndex(headers, ["예상", "plan", "계획", "수량", "qty", "작업예상"]);
-
-      // fallback: (월, 수량)처럼 보이는 칼럼으로 추정
-      if (colMonth < 0) colMonth = 0;
-      if (colQty < 0) colQty = 1;
-
-      for (let i=1;i<rows.length;i++){
-        const r = rows[i] || [];
-        const ym = parseMonthFromAny(r[colMonth]);
-        const qty = toNum(r[colQty]);
-        if (!ym) continue;
-        if (ym === curYM) curPlan += qty;
-        if (ym === nextYM) nextPlan += qty;
-      }
-    }
-  } catch (e) {
-    console.warn("[REPAIR][PLAN] failed:", e);
+  // BOSU 읽기
+  const rows = parseCsv(await fetchText(URL_BOSU));
+  if (!rows.length){
+    if (elCurPlan) elCurPlan.textContent = "-";
+    if (elCurDone) elCurDone.textContent = "-";
+    if (elCurRem)  elCurRem.textContent  = "-";
+    if (elNxtPlan) elNxtPlan.textContent = "-";
+    if (elNxtDone) elNxtDone.textContent = "-";
+    if (elNxtRem)  elNxtRem.textContent  = "-";
+    return;
   }
 
-  // -----------------------
-  // 2) DONE: bosu
-  // -----------------------
-  let curDone = 0, nextDone = 0;
-  try {
-    const rows = parseCsv(await fetchText(URL_BOSU));
-    if (rows.length) {
-      const headers = rows[0] || [];
-      let colDate = detectHeaderIndex(headers, ["날짜", "date", "일자"]);
-      let colQty  = detectHeaderIndex(headers, ["완료", "done", "수량", "qty", "작업량"]);
+  // 헤더 기반 컬럼 자동 탐색 (✅ 너 스크린샷 컬럼명 그대로 잡힘)
+  const headers = rows[0] || [];
+  let COL_DATE = detectHeaderIndex(headers, ["출고일", "date"]);
+  let COL_PLAN = detectHeaderIndex(headers, ["작업예상수량", "예상", "plan"]);
+  let COL_DONE = detectHeaderIndex(headers, ["작업완료수량", "완료", "done"]);
+  // (옵션) 잔량 컬럼이 있으면 참고 가능
+  let COL_REM  = detectHeaderIndex(headers, ["작업후잔량", "잔량", "remain"]);
 
-      if (colDate < 0) colDate = 0;
-      if (colQty < 0) colQty = 1;
+  // fallback (혹시 헤더가 깨질 경우, 네 스샷 기준)
+  if (COL_DATE < 0) COL_DATE = 1; // B
+  if (COL_PLAN < 0) COL_PLAN = 5; // F
+  if (COL_DONE < 0) COL_DONE = 6; // G
+  if (COL_REM  < 0) COL_REM  = 7; // H
 
-      for (let i=1;i<rows.length;i++){
-        const r = rows[i] || [];
-        const ymd = toYMD(r[colDate]);
-        const ym = parseMonthFromAny(ymd);
-        const qty = toNum(r[colQty]);
-        if(!ym) continue;
-        if (ym === curYM) curDone += qty;
-        if (ym === nextYM) nextDone += qty;
-      }
+  let curPlan = 0, curDone = 0;
+  let nxtPlan = 0, nxtDone = 0;
+
+  for (let i=1; i<rows.length; i++){
+    const r = rows[i] || [];
+
+    const ym = parseYMFromYMD(r[COL_DATE]);
+    if (!ym) continue;
+
+    const plan = toNum(r[COL_PLAN]);
+    const done = toNum(r[COL_DONE]); // '-'면 0으로 처리됨 (toNum 덕분)
+
+    if (ym === curYM){
+      curPlan += plan;
+      curDone += done;
+    } else if (ym === nextYM){
+      nxtPlan += plan;
+      nxtDone += done;
     }
-  } catch (e) {
-    console.warn("[REPAIR][DONE] failed:", e);
   }
 
   const curRemain = Math.max(0, curPlan - curDone);
-  const nextRemain = Math.max(0, nextPlan - nextDone);
+  const nxtRemain = Math.max(0, nxtPlan - nxtDone);
 
   if (elCurPlan) elCurPlan.textContent = fmt0(curPlan);
   if (elCurDone) elCurDone.textContent = fmt0(curDone);
   if (elCurRem)  elCurRem.textContent  = fmt0(curRemain);
 
-  if (elNxtPlan) elNxtPlan.textContent = fmt0(nextPlan);
-  if (elNxtDone) elNxtDone.textContent = fmt0(nextDone);
-  if (elNxtRem)  elNxtRem.textContent  = fmt0(nextRemain);
+  if (elNxtPlan) elNxtPlan.textContent = fmt0(nxtPlan);
+  if (elNxtDone) elNxtDone.textContent = fmt0(nxtDone);
+  if (elNxtRem)  elNxtRem.textContent  = fmt0(nxtRemain);
 
-  console.log("[REPAIR]", { curYM, curPlan, curDone, curRemain, nextYM, nextPlan, nextDone, nextRemain });
+  console.log("[REPAIR/BOSU]", {
+    curYM, curPlan, curDone, curRemain,
+    nextYM, nxtPlan, nxtDone, nxtRemain,
+    COL_DATE, COL_PLAN, COL_DONE, COL_REM
+  });
 }
+
 
 // =====================================================
 // 6) 설비 작업 (전월/당월) - daily
