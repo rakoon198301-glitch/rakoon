@@ -73,6 +73,12 @@
       text-overflow:ellipsis;
       white-space:nowrap;
     }
+    .muted{
+      color:#94a3b8;
+      font-weight:700;
+      text-align:center;
+      padding:14px 10px;
+    }
 
     /* 오른쪽 작은 카드 */
     .mini .card-h { padding:8px 10px; }
@@ -82,50 +88,53 @@
     .kv b { font-size:12px; font-weight:900; color:#0f172a; font-variant-numeric: tabular-nums; }
 
     /* Dock cards (좌측) */
-.dock-card{
-  background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
-  color:#fff;
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:18px;
-  padding:14px;
-  box-shadow:0 10px 28px rgba(15,23,42,.20);
-}
-.dock-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-.dock-title{ font-size:12px; font-weight:950; color:rgba(255,255,255,.90); }
-.pill{
-  font-size:10px; padding:3px 9px; border-radius:999px;
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(255,255,255,.08);
-  color:rgba(255,255,255,.88);
-  font-weight:900;
-}
-.dock-owner{ margin-top:8px; font-size:13px; font-weight:950; color:rgba(255,255,255,.95); }
-.dock-table{ width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; }
-.dock-table th{
-  text-align:left; font-size:10px; color:rgba(255,255,255,.65); font-weight:950;
-  padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap;
-}
-.dock-table td{
-  font-size:11px; color:rgba(255,255,255,.92); font-weight:950;
-  padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
-}
-.dock-table tr:last-child td{ border-bottom:none; }
+    .dock-card{
+      background: linear-gradient(180deg, #0b122a 0%, #111c3f 100%);
+      color:#fff;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:18px;
+      padding:14px;
+      box-shadow:0 10px 28px rgba(15,23,42,.20);
+    }
+    .dock-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .dock-title{ font-size:12px; font-weight:950; color:rgba(255,255,255,.90); }
+    .pill{
+      font-size:10px; padding:3px 9px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:rgba(255,255,255,.88);
+      font-weight:900;
+    }
+    .dock-owner{ margin-top:8px; font-size:13px; font-weight:950; color:rgba(255,255,255,.95); }
+    .dock-table{ width:100%; border-collapse:separate; border-spacing:0; margin-top:8px; }
+    .dock-table th{
+      text-align:left; font-size:10px; color:rgba(255,255,255,.65); font-weight:950;
+      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.10); white-space:nowrap;
+    }
+    .dock-table td{
+      font-size:11px; color:rgba(255,255,255,.92); font-weight:950;
+      padding:6px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
+    }
+    .dock-table tr:last-child td{ border-bottom:none; }
 
-.scroll-box{
-  max-height: 260px;
-  overflow:auto;
-}
-.scroll-box::-webkit-scrollbar{ width:8px; }
-.scroll-box::-webkit-scrollbar-thumb{ background:#d7dee8; border-radius:999px; }
-.scroll-box::-webkit-scrollbar-track{ background:transparent; }
+    .scroll-box{
+      max-height: 260px;
+      overflow:auto;
+    }
+    .scroll-box::-webkit-scrollbar{ width:8px; }
+    .scroll-box::-webkit-scrollbar-thumb{ background:#d7dee8; border-radius:999px; }
+    .scroll-box::-webkit-scrollbar-track{ background:transparent; }
 
-.boardbar{
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:18px;
-  box-shadow:0 1px 2px rgba(0,0,0,.05);
-}
-
+    /* 사이드바 (nav.js 없어도 동작하는 최소 버전) */
+    #sidebarOverlay{
+      position:fixed; inset:0; background:rgba(15,23,42,.55);
+      z-index:60;
+    }
+    #sidebar{
+      position:fixed; top:0; left:0; height:100vh; width:280px;
+      background:#0A1833; color:#fff; z-index:70;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+    }
   </style>
 </head>
 
@@ -134,6 +143,17 @@
   <!-- nav.js -->
   <script src="nav.js"></script>
   <script type="module" src="./js/index.js"></script>
+
+  <!-- ✅ nav.js가 사이드바를 안 넣는 경우 대비: 최소 사이드바/오버레이 -->
+  <div id="sidebarOverlay" class="hidden"></div>
+  <aside id="sidebar" class="-translate-x-full transition-transform duration-200">
+    <div class="p-4 border-b border-white/10 font-extrabold">MENU</div>
+    <div class="p-3 space-y-2 text-sm">
+      <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/index.html">Dashboard</a>
+      <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/index_repair.html">보수 작업</a>
+      <a class="block px-3 py-2 rounded-lg hover:bg-white/10" href="/defect.html">결품 조회</a>
+    </div>
+  </aside>
 
   <div class="max-w-[1700px] mx-auto pt-16 px-4 md:px-6 pb-8">
     <div class="relative">
@@ -173,7 +193,7 @@
         </div>
 
         <!-- =========================
-             4열 레이아웃 
+             4열 레이아웃
         ========================== -->
         <section class="grid grid-cols-12 gap-3">
 
@@ -228,9 +248,8 @@
           </div>
 
           <!-- LEFT: 출고 누계/요약 (xl:4) -->
-          <div class="col-span-12 xl:col-span-4 space-y-3"> 
+          <div class="col-span-12 xl:col-span-4 space-y-3">
 
-           
             <!-- 출고 요약 -->
             <div class="card">
               <div class="card-h">
@@ -268,8 +287,7 @@
               </div>
             </div>
 
-            
-              <!-- 출고정보 7일 -->
+            <!-- 출고정보 7일 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -303,13 +321,12 @@
               </div>
             </div>
 
-              
           </div>
 
-          <!-- MIDDLE: 월별/7일 (xl:3) -->
-          <div class="col-span-12 xl:col-span-3 space-y-3">  
-            
-           <!-- 출고 누계 -->
+          <!-- MIDDLE: 월별/작업장별 (xl:3) -->
+          <div class="col-span-12 xl:col-span-3 space-y-3">
+
+            <!-- 출고 누계 -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -376,8 +393,8 @@
                 </table>
               </div>
             </div>
-             
-              <!-- 작업장별 작업수량 (전체누계) -->
+
+            <!-- 작업장별 작업수량 (전체누계) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -409,11 +426,11 @@
                 </table>
               </div>
             </div>
-          
+
           </div>
 
           <!-- RIGHT: 미니 (xl:2) -->
-          <div class="col-span-12 xl:col-span-2 space-y-3 mini"> 
+          <div class="col-span-12 xl:col-span-2 space-y-3 mini">
 
             <!-- 보수작업 (당월) -->
             <div class="card">
@@ -447,7 +464,7 @@
               </div>
             </div>
 
-            <!-- 설비 (당월) -->
+            <!-- 설비 (전월) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -462,7 +479,7 @@
               </div>
             </div>
 
-            <!-- 설비 (다음달) -->
+            <!-- 설비 (당월) -->
             <div class="card">
               <div class="card-h">
                 <div>
@@ -477,7 +494,6 @@
               </div>
             </div>
 
-          
             <!-- 재고 합계 (wms) -->
             <div class="card">
               <div class="card-h">
@@ -500,7 +516,7 @@
   </div>
 
   <!-- =========================
-        JS: 사이드바 + 시계 + 풀스크린 
+        JS: 사이드바 + 시계 + 풀스크린
   ========================== -->
   <script>
     const sidebar = document.getElementById("sidebar");

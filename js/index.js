@@ -1,5 +1,4 @@
 // js/index.js
-
 const fmtKR = new Intl.NumberFormat("ko-KR");
 
 function $(id){ return document.getElementById(id); }
@@ -12,15 +11,32 @@ function toNum(v){
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 }
+
+/**
+ * ✅ 날짜 정규화 (핵심 안정화)
+ * - 2026-2-3 / 2026.2.3 / 2026/2/3 / 2026-02-03 모두 → 2026-02-03
+ */
 function toYMD(v){
-  const s = norm(v);
+  let s = (v ?? "").toString().trim();
   if(!s) return "";
-  // 2026-02-02
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // 2026.02.02
-  if (/^\d{4}\.\d{2}\.\d{2}$/.test(s)) return s.replaceAll(".","-");
-  // 2026/02/02
-  if (/^\d{4}\/\d{2}\/\d{2}$/.test(s)) return s.replaceAll("/","-");
+
+  s = s.replace(/\s+/g, "").replace(/[./]/g, "-");
+
+  const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) {
+    const yy = m[1];
+    const mm = String(m[2]).padStart(2, "0");
+    const dd = String(m[3]).padStart(2, "0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const yy = v.getFullYear();
+    const mm = String(v.getMonth()+1).padStart(2,"0");
+    const dd = String(v.getDate()).padStart(2,"0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
   return s;
 }
 
@@ -37,7 +53,16 @@ function fmtAvg(n){
 async function fetchText(url){
   const res = await fetch(url, { cache:"no-store" });
   if(!res.ok) throw new Error("HTTP " + res.status);
-  return await res.text();
+
+  const text = await res.text();
+
+  // ✅ 구글이 CSV 대신 HTML(권한/차단 페이지)을 주는 경우를 바로 잡아냄
+  const head = text.slice(0, 200).toLowerCase();
+  if (head.includes("<!doctype html") || head.includes("<html")) {
+    throw new Error("CSV 대신 HTML 응답(권한/차단/오류 가능): " + url);
+  }
+
+  return text;
 }
 
 //  따옴표 포함 CSV 파서
@@ -164,7 +189,6 @@ async function renderShipTotal(){
   let s20=0, s40=0, slcl=0;
 
   for(const r of rows){
-    // 헤더/빈줄 스킵
     const a0 = norm(r?.[0]);
     if(!a0 || a0.includes("날짜")) continue;
 
@@ -201,22 +225,22 @@ async function renderShipMonthly(){
   const COL_40 = 9;
   const COL_LCL = 11;
 
-  const map = new Map(); // month(1~12) -> {s20,s40,slcl}
+  const map = new Map();
   for(let m=1;m<=12;m++) map.set(m, {s20:0,s40:0,slcl:0});
 
   for(const r of rows){
     const d = toYMD(r?.[COL_DATE]);
     if(!d || d.includes("날짜")) continue;
-    const m = Number(d.slice(5,7));
-    if(!(m>=1 && m<=12)) continue;
 
-    const o = map.get(m);
+    const mm = Number(d.slice(5,7));
+    if(!(mm>=1 && mm<=12)) continue;
+
+    const o = map.get(mm);
     o.s20 += toNum(r?.[COL_20]);
     o.s40 += toNum(r?.[COL_40]);
     o.slcl += toNum(r?.[COL_LCL]);
   }
 
-  //  1월~12월 고정 정렬
   const html = [];
   for(let m=1;m<=12;m++){
     const o = map.get(m);
@@ -249,7 +273,6 @@ async function renderShip7Days(){
   const COL_40 = 9;
   const COL_LCL = 11;
 
-  const start = getKRYMD(0);
   const days = [];
   for(let i=0;i<7;i++){
     const ymd = getKRYMD(i);
@@ -300,8 +323,7 @@ async function renderShipTodayAll(){
   const COL_LOC = 16;     // Q
   const COL_TIME = 19;    // T
 
-  //  출고일 컬럼 자동탐색
-  // 기본 D(3) 기준으로 
+  // 출고일 컬럼 자동탐색(샘플 기준 today 매칭 많이 나오는 col 선택)
   let COL_SHIP_DATE = 3;
   const sample = rows.slice(0, 80);
   let bestCol = COL_SHIP_DATE, bestHit = 0;
@@ -338,7 +360,6 @@ async function renderShipTodayAll(){
     });
   }
 
-  //  컨테이너(20->40->LCL) -> 시간 정렬
   data.sort((a,b)=> (a._rank - b._rank) || (a._tmin - b._tmin));
 
   if(data.length === 0){
@@ -370,70 +391,166 @@ async function renderShipTodayAll(){
 }
 
 // =====================================================
-// 설비 작업 (전월/당월) - daily
-//  - 날짜 A열(0)
-//  - 설비 작업량: F열(5)
-//  - 평균: 합계 / 작업일수(해당월에서 설비값>0인 날짜 수)
-//  - 출력 ID:
-//     전월  -> fac_cur_qty,  fac_cur_avg
-//     당월  -> fac_next_qty, fac_next_avg
+// 5) 보수작업 카드 (당월/다음달)
+//  - URL_SAP_ITEM : "예상량(Plan)" 추정
+//  - URL_BOSU     : "완료량(Done)" 추정
+//
+// ✅ 컬럼명이 있으면 키워드로 자동탐색
+// ✅ 컬럼명이 없으면 최대한 안전하게 fallback
+// =====================================================
+function ymKey(y,m){ return `${y}-${String(m).padStart(2,"0")}`; }
+
+function detectHeaderIndex(headers, keywords){
+  const lower = headers.map(h => norm(h).toLowerCase());
+  for (let i=0;i<lower.length;i++){
+    const s = lower[i];
+    for (const k of keywords){
+      if (s.includes(k)) return i;
+    }
+  }
+  return -1;
+}
+
+function parseMonthFromAny(v){
+  // "2026-02", "2026/2", "2026.02", "2026-02-03", "2026/2/3" 등에서 yyyy-mm 뽑기
+  const s0 = norm(v);
+  if(!s0) return "";
+  const s = s0.replace(/\s+/g,"").replace(/[./]/g,"-");
+  // yyyy-mm-dd or yyyy-m-d
+  const m1 = s.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?/);
+  if(!m1) return "";
+  const yy = Number(m1[1]);
+  const mm = Number(m1[2]);
+  if(!(yy>=2000 && mm>=1 && mm<=12)) return "";
+  return ymKey(yy, mm);
+}
+
+async function renderRepairCards(){
+  const elCurPlan = $("rep_cur_plan");
+  const elCurDone = $("rep_cur_done");
+  const elCurRem  = $("rep_cur_remain");
+
+  const elNxtPlan = $("rep_next_plan");
+  const elNxtDone = $("rep_next_done");
+  const elNxtRem  = $("rep_next_remain");
+
+  const today = getKRYMD(0);
+  const y = Number(today.slice(0,4));
+  const m = Number(today.slice(5,7));
+
+  const curYM = ymKey(y,m);
+  const nextYM = (m===12) ? ymKey(y+1,1) : ymKey(y,m+1);
+
+  // -----------------------
+  // 1) PLAN: sap_item
+  // -----------------------
+  let curPlan = 0, nextPlan = 0;
+  try {
+    const rows = parseCsv(await fetchText(URL_SAP_ITEM));
+    if (rows.length) {
+      const headers = rows[0] || [];
+      let colMonth = detectHeaderIndex(headers, ["월", "month", "ym", "년월", "기간", "date"]);
+      let colQty   = detectHeaderIndex(headers, ["예상", "plan", "계획", "수량", "qty", "작업예상"]);
+
+      // fallback: (월, 수량)처럼 보이는 칼럼으로 추정
+      if (colMonth < 0) colMonth = 0;
+      if (colQty < 0) colQty = 1;
+
+      for (let i=1;i<rows.length;i++){
+        const r = rows[i] || [];
+        const ym = parseMonthFromAny(r[colMonth]);
+        const qty = toNum(r[colQty]);
+        if (!ym) continue;
+        if (ym === curYM) curPlan += qty;
+        if (ym === nextYM) nextPlan += qty;
+      }
+    }
+  } catch (e) {
+    console.warn("[REPAIR][PLAN] failed:", e);
+  }
+
+  // -----------------------
+  // 2) DONE: bosu
+  // -----------------------
+  let curDone = 0, nextDone = 0;
+  try {
+    const rows = parseCsv(await fetchText(URL_BOSU));
+    if (rows.length) {
+      const headers = rows[0] || [];
+      let colDate = detectHeaderIndex(headers, ["날짜", "date", "일자"]);
+      let colQty  = detectHeaderIndex(headers, ["완료", "done", "수량", "qty", "작업량"]);
+
+      if (colDate < 0) colDate = 0;
+      if (colQty < 0) colQty = 1;
+
+      for (let i=1;i<rows.length;i++){
+        const r = rows[i] || [];
+        const ymd = toYMD(r[colDate]);
+        const ym = parseMonthFromAny(ymd);
+        const qty = toNum(r[colQty]);
+        if(!ym) continue;
+        if (ym === curYM) curDone += qty;
+        if (ym === nextYM) nextDone += qty;
+      }
+    }
+  } catch (e) {
+    console.warn("[REPAIR][DONE] failed:", e);
+  }
+
+  const curRemain = Math.max(0, curPlan - curDone);
+  const nextRemain = Math.max(0, nextPlan - nextDone);
+
+  if (elCurPlan) elCurPlan.textContent = fmt0(curPlan);
+  if (elCurDone) elCurDone.textContent = fmt0(curDone);
+  if (elCurRem)  elCurRem.textContent  = fmt0(curRemain);
+
+  if (elNxtPlan) elNxtPlan.textContent = fmt0(nextPlan);
+  if (elNxtDone) elNxtDone.textContent = fmt0(nextDone);
+  if (elNxtRem)  elNxtRem.textContent  = fmt0(nextRemain);
+
+  console.log("[REPAIR]", { curYM, curPlan, curDone, curRemain, nextYM, nextPlan, nextDone, nextRemain });
+}
+
+// =====================================================
+// 6) 설비 작업 (전월/당월) - daily
+//  - 날짜 A열(0), 설비 F열(5)
 // =====================================================
 async function renderFacilityCards(){
-  const elPrevQty = $("fac_cur_qty");   // ✅ 전월
+  const elPrevQty = $("fac_cur_qty");   // 전월
   const elPrevAvg = $("fac_cur_avg");
-  const elCurQty  = $("fac_next_qty");  // ✅ 당월
+  const elCurQty  = $("fac_next_qty");  // 당월
   const elCurAvg  = $("fac_next_avg");
 
   const rows = parseCsv(await fetchText(URL_DAILY));
   const COL_DATE = 0;
   const COL_FAC  = 5; // F
 
-  // 오늘 기준 연/월
-  const today = getKRYMD(0); // "YYYY-MM-DD" 기대
+  const today = getKRYMD(0);
   const y = Number(today.slice(0,4));
   const m = Number(today.slice(5,7));
 
-  // 전월
   const prevY = (m === 1) ? y - 1 : y;
   const prevM = (m === 1) ? 12 : m - 1;
 
-  // 당월
   const curY = y;
   const curM = m;
-
-  // ✅ 날짜 정규화: 2026.1.3 / 2026/01/03 / 2026-1-3 모두 처리
-  function normYMD(x){
-    if(!x) return "";
-    let s = String(x).trim();
-    if(!s || s.includes("날짜")) return "";
-    s = s.replace(/\./g, "-").replace(/\//g, "-").replace(/\s+/g, "");
-    const m1 = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if(!m1) return "";
-    const yy = m1[1];
-    const mm = String(m1[2]).padStart(2,"0");
-    const dd = String(m1[3]).padStart(2,"0");
-    return `${yy}-${mm}-${dd}`;
-  }
 
   let prevSum = 0, curSum = 0;
   const prevDays = new Set();
   const curDays  = new Set();
 
   for(const r of rows){
-    const d = normYMD(r?.[COL_DATE]);
-    if(!d) continue;
+    const d = toYMD(r?.[COL_DATE]);
+    if(!d || d.includes("날짜")) continue;
 
     const yy = Number(d.slice(0,4));
     const mm = Number(d.slice(5,7));
     const v  = toNum(r?.[COL_FAC]);
 
-    // 전월
     if(yy === prevY && mm === prevM){
       prevSum += v;
-      if(v > 0) prevDays.add(d); // ✅ 작업한 날짜만
+      if(v > 0) prevDays.add(d);
     }
-
-    // 당월
     if(yy === curY && mm === curM){
       curSum += v;
       if(v > 0) curDays.add(d);
@@ -449,21 +566,15 @@ async function renderFacilityCards(){
   if(elCurQty)  elCurQty.textContent  = fmt0(curSum);
   if(elCurAvg)  elCurAvg.textContent  = fmtAvg(curAvg);
 
-  // ✅ 전월 안 잡힐 때 즉시 원인 확인용 로그
   console.log("[FAC]", {
     today, prevY, prevM, prevSum, prevDays: prevDays.size,
     curY, curM, curSum, curDays: curDays.size
   });
 }
 
-
-
-
 // =====================================================
 // 7) 작업장별 작업수량 (전체누계) - daily
 //   - D(3)=A, E(4)=B, F(5)=설비
-//   - 평균: 합계 / 진짜 작업일수
-//     ※ 진짜 작업일수 = (D+E+F) > 0 인 날짜 수
 // =====================================================
 async function renderWorkplaceTotal(){
   const tb = $("work_total_tbody");
@@ -534,22 +645,24 @@ async function renderInventorySum(){
   let sum = 0;
 
   for(const r of rows){
-    const v = toNum(r?.[COL_QTY]);
-    sum += v;
+    // 헤더 스킵(혹시 "수량" 같은 문자열이면 0으로 처리되어도 괜찮지만 방어)
+    const a0 = norm(r?.[0]);
+    if (a0 && (a0.includes("자재") || a0.includes("품목") || a0.includes("CODE"))) {
+      continue;
+    }
+    sum += toNum(r?.[COL_QTY]);
   }
   el.textContent = fmt0(sum);
 }
 
 /* =========================
    ⏱ 무깜빡임 데이터 갱신 (KST 06~20만)
-   - dashboard.html에서도 동작하도록 "마지막 갱신" 의존 제거
-   - 실행 로그 추가
 ========================= */
 
-// 운영: 30분
+// 운영: 30분으로 바꾸면 됨
 // const DATA_REFRESH_MIN = 30;
 
-// 테스트: 1분으로 바꿔서 동작 확인 후 30으로 복귀
+// 테스트: 1분
 const DATA_REFRESH_MIN = 1;
 
 const DATA_REFRESH_MS = DATA_REFRESH_MIN * 60 * 1000;
@@ -561,18 +674,13 @@ function getKSTHour() {
   return new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul", hour: "2-digit", hour12: false });
 }
 
-// 06:00~20:00만 자동갱신 (20시는 포함 X)
 function isAutoRefreshTime() {
   const h = Number(getKSTHour());
   return h >= 6 && h < 20;
 }
 
-// (선택) 마지막 갱신 시간 표시 — 있으면 표시, 없으면 그냥 패스
 function setLastUpdated() {
-  let el = document.querySelector("#boardUpdated");
-  if (!el) el = document.querySelector("#boardBar span.font-extrabold.text-sky-700");
-  // if (!el) el = document.querySelector("#dataUpdated");
-
+  const el = document.querySelector("#dataUpdatedTop");
   if (!el) return;
 
   const now = new Date();
@@ -633,15 +741,12 @@ async function refreshAll() {
 }
 
 function startAutoRefresh() {
-  // 기존 타이머 제거
   if (_timer) clearInterval(_timer);
   _timer = null;
 
-  // 근무시간이면 타이머 시작
   if (isAutoRefreshTime()) {
     console.log(`[REFRESH] timer ON (${DATA_REFRESH_MIN}min)`);
     _timer = setInterval(() => {
-      // 근무시간 벗어나면 자동 중지
       if (!isAutoRefreshTime()) {
         console.log("[REFRESH] timer OFF (out of worktime)");
         if (_timer) clearInterval(_timer);
@@ -656,13 +761,8 @@ function startAutoRefresh() {
 }
 
 function init() {
-  // 최초 1회 로딩은 항상 실행
   refreshAll();
-
-  // 근무시간(06~20)만 갱신
   startAutoRefresh();
-
-  // 시간이 06/20 넘어갈 때 타이머 on/off 되도록 5분마다 체크
   setInterval(startAutoRefresh, 5 * 60 * 1000);
 }
 
