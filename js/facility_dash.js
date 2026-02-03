@@ -106,18 +106,18 @@ async function renderFacilityFromSystem() {
   const text = await fetchText(SYSTEM_CSV_URL);
   const rows = parseCsv(text);
 
-  // 컬럼 인덱스 (0-based)
-  // A:0, B:1, D:3, E:4, G:6, H:7, I:8, J:9, K:10, L:11
-  const COL_INV = 0;     // A
-  const COL_COUNTRY = 1; // B
-  const COL_DATE = 3;    // D
-  const COL_STATUS = 4;  // E
-  const COL_MAT = 6;     // G
-  const COL_BOX = 7;     // H
-  const COL_NAME = 8;    // I
-  const COL_SUM = 9;     // J
-  const COL_OUTBOX = 10; // K
-  const COL_INBOX = 11;  // L
+ // 컬럼 인덱스 (0-based)
+ const COL_INV     = 0;  // A 인보이스
+ const COL_COUNTRY = 1;  // B 국가   ✅ 추가 컬럼
+ const COL_DATE    = 3;  // D 날짜
+ const COL_STATUS  = 4;  // E 상태
+ const COL_MAT     = 6;  // G 자재번호
+ const COL_BOX     = 7;  // H 박스번호
+ const COL_NAME    = 8;  // I 자재내역 (기존 품명)
+ const COL_SUM     = 9;  // J 합계
+ const COL_OUTBOX  = 10; // K 외박스
+ const COL_INBOX   = 11; // L 제품
+
 
   const today = kstYMD();
 
@@ -193,14 +193,17 @@ async function renderFacilityFromSystem() {
       const sum  = fmt0(r[COL_SUM]);
 
       tr.innerHTML = `
-        <td>${escapeHtml(inv)}</td>
-        <td>${escapeHtml(mat)}</td>
-        <td>${escapeHtml(box)}</td>
-        <td class="max-w-[520px] truncate">${escapeHtml(name)}</td>
-        <td style="text-align:right;">${escapeHtml(outb)}</td>
-        <td style="text-align:right;">${escapeHtml(inb)}</td>
-        <td style="text-align:right; font-weight:700;">${sum}</td>
-      `;
+          <td>${escapeHtml(inv)}</td>
+          <td>${escapeHtml(country)}</td>   <!-- ✅ 국가 (B열) -->
+          <td>${escapeHtml(mat)}</td>
+          <td>${escapeHtml(box)}</td>
+          <td class="max-w-[520px] truncate">
+               ${escapeHtml(name)}              <!-- ✅ 자재내역 (I열) -->
+          </td>
+          <td style="text-align:right;">${escapeHtml(outb)}</td>
+          <td style="text-align:right;">${escapeHtml(inb)}</td>
+          <td style="text-align:right; font-weight:700;">${sum}</td>
+           `;
       tbody.appendChild(tr);
     }
 
