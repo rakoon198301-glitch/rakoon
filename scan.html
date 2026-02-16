@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>출고검수 스캔 · 남경 검수시스템 (Renew UI)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- ✅ 캡처 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    body { background:#eef1f5; }
+
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(20px) scale(0.95); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+
+    /* ✅ nav.js가 body class 바꿔주는 전제 */
+    body { --nkgLeft: 0px; }
+    body.nkg-sidebar-on  { --nkgLeft: 300px; }
+    body.nkg-sidebar-off { --nkgLeft: 0px; }
+
+    /* ⚠️ 중복 밀림 방지:
+       nav.js가 body padding-left를 직접 주입하므로,
+       여기서는 padding-left를 추가로 주지 않습니다. */
+
+    /* ✅ 상단바 */
+    .boardbar{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+
+    /* ✅ 공통 카드 */
+    .card{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+
+    /* ✅ 테이블 sticky 헤더 안정 */
+    table{ border-collapse:collapse; width:100%; }
+    th,td{ border-bottom:1px solid #e5e7eb; padding:10px 10px; font-size:12px; }
+    th{ position:sticky; top:0; z-index:5; background:#f8fafc; color:#64748b; text-align:left; }
+
+    /* ✅ 진행중 강조(굵게 + 연노랑) */
+    .ship-current td{
+      background: #FEF9C3 !important; /* 연노랑 */
+      font-weight: 800 !important;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-100">
+
+  <!-- ✅ nav.js -->
+  <script src="nav.js"></script>
+
+  <!-- ✅ 상단 고정 바 (left: var(--nkgLeft) 유지) -->
+  <div class="fixed top-0 right-0 z-[60]" style="left: var(--nkgLeft);">
+    <div class="max-w-[1500px] mx-auto px-4 md:px-6 pt-4 md:pt-6">
+      <div class="boardbar px-4 py-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="text-[11px] font-extrabold text-slate-500 tracking-widest">SCAN MODE</div>
+            <div class="hidden md:block text-sm font-extrabold text-slate-900 truncate">
+              남경 검수시스템 · 출고검수 스캔
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button id="btnSidebar"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
+              MENU
+            </button>
+
+            <div class="text-right">
+              <div id="boardClock" class="text-lg md:text-xl font-extrabold tabular-nums text-slate-900">--:--:--</div>
+            </div>
+
+            <button id="btnFullscreen"
+              class="hidden md:inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-100">
+              FULLSCREEN
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ 상단바 공간 -->
+  <div class="h-[92px] md:h-[108px]"></div>
+
+  <main class="max-w-[1600px] mx-auto px-4 md:px-6 pb-10">
+    <section class="card p-4 md:p-5 space-y-5">
+
+      <!-- ▣ 인보이스 조회 -->
+      <div class="flex flex-col xl:flex-row xl:items-center gap-3 xl:gap-6">
+        <div class="flex-1 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+          <input id="invInput"
+            class="w-full md:w-[28rem] px-10 py-8 md:py-10
+                   text-4xl md:text-6xl font-black tracking-[0.18em]
+                   placeholder:text-2xl md:placeholder:text-4xl
+                   border-[5px] border-slate-600 rounded-[3rem]
+                   focus:ring-[10px] focus:ring-sky-500 focus:border-sky-700
+                   shadow-2xl text-center bg-slate-50"
+            placeholder="INV NO" />
+
+          <div class="flex gap-3">
+            <button id="btnLoadInv"
+              class="flex-1 px-8 py-6 md:px-12 md:py-10
+                     text-2xl md:text-4xl font-black tracking-wide
+                     bg-sky-600 hover:bg-sky-700
+                     text-white rounded-[3rem]
+                     shadow-2xl active:scale-95">
+              조회
+            </button>
+
+            <button id="btnNoticeOpen"
+              class="flex-1 px-8 py-6 md:px-12 md:py-10
+                     text-2xl md:text-4xl font-black tracking-wide
+                     bg-orange-500 hover:bg-orange-600
+                     text-white rounded-[3rem]
+                     shadow-2xl active:scale-95">
+              특이사항
+            </button>
+
+            <button id="btnCapture"
+              class="flex-1 px-8 py-6 md:px-12 md:py-10
+                     text-2xl md:text-4xl font-black tracking-wide
+                     bg-emerald-600 hover:bg-emerald-700
+                     text-white rounded-[3rem]
+                     shadow-2xl active:scale-95">
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ 캡처 영역 -->
+      <div id="captureArea" class="space-y-4">
+
+        <!-- ✅ 상단: 좌(요약+스캔/상태) / 우(출고 요약) -->
+        <section class="grid grid-cols-12 gap-4 items-stretch">
+
+          <!-- LEFT -->
+          <div class="col-span-12 xl:col-span-6 space-y-4">
+
+            <!-- 요약 카드 -->
+            <div class="rounded-2xl border bg-slate-50 p-3">
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[13px] font-medium text-slate-700">
+                <div>
+                  <div class="text-[11px] text-slate-500">인보이스</div>
+                  <div id="inv_no" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">국가</div>
+                  <div id="country" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">상차 위치</div>
+                  <div id="load_loc" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">상차 시간</div>
+                  <div id="load_time" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+              </div>
+
+              <div class="my-2 border-t border-slate-200"></div>
+
+              <div class="grid grid-cols-3 gap-2 text-[13px] font-medium text-slate-700">
+                <div>
+                  <div class="text-[11px] text-slate-500">컨테이너</div>
+                  <div id="container" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">CBM</div>
+                  <div id="cbm" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+                <div>
+                  <div class="text-[11px] text-slate-500">출고수량(Box)</div>
+                  <div id="qty" class="text-sm md:text-base font-semibold whitespace-nowrap">-</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 스캔 + 상태 -->
+            <div class="grid grid-cols-12 gap-4">
+              <div class="col-span-12 lg:col-span-6 rounded-2xl border bg-white p-4">
+                <div class="flex items-end justify-between">
+                  <div>
+                    <div class="text-sm font-extrabold text-slate-800">바코드 스캔</div>
+                    <div class="text-[11px] text-slate-500">스캐너 입력 후 Enter</div>
+                  </div>
+                  <button type="button" onclick="document.getElementById('barcodeInput')?.focus()"
+                    class="rounded-xl border px-3 py-2 text-[12px] font-extrabold text-slate-700 hover:bg-slate-50">
+                    포커스
+                  </button>
+                </div>
+
+                <input id="barcodeInput"
+                  class="mt-3 w-full px-4 py-3 text-lg font-extrabold tracking-wide
+                         border border-slate-300 rounded-2xl bg-slate-50
+                         focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                  placeholder="바코드를 스캔하세요" autofocus />
+              </div>
+
+              <div class="col-span-12 lg:col-span-6 grid grid-cols-2 gap-3 content-start">
+                <div class="rounded-2xl border bg-slate-50 p-3">
+                  <div class="text-xs text-slate-500 mb-1">최근 스캔 결과</div>
+                  <div id="recentScanStatus" class="text-base font-bold text-slate-700">-</div>
+                  <div id="recentScanDetail" class="text-[11px] text-slate-400 mt-1 leading-relaxed"></div>
+                </div>
+
+                <div class="rounded-2xl border bg-slate-50 p-3">
+                  <div class="text-xs text-slate-500 mb-1">누적 진행</div>
+                  <div class="flex items-baseline gap-2">
+                    <span id="progress_now" class="text-xl font-bold text-slate-800">0</span>
+                    <span id="progress_total" class="text-xs text-slate-400">/ 0 품목</span>
+                    <span id="progress_percent" class="text-sm font-semibold text-emerald-700 ml-1">0%</span>
+                  </div>
+                  <div class="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden">
+                    <div id="progress_bar" class="h-full w-0 bg-sky-500"></div>
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border bg-slate-50 p-3">
+                  <div class="text-xs text-slate-500 mb-1">미등록 바코드</div>
+                  <div class="flex items-baseline gap-2">
+                    <span id="error_count" class="text-xl font-bold text-red-600">0</span>
+                    <span class="text-xs text-slate-400">건</span>
+                  </div>
+                </div>
+
+                <div class="rounded-2xl border bg-slate-50 p-3">
+                  <div class="text-xs text-slate-500 mb-1">중복 바코드</div>
+                  <div class="flex items-baseline gap-2">
+                    <span id="dup_count" class="text-xl font-bold text-amber-600">0</span>
+                    <span class="text-xs text-slate-400">건</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT (출고요약: 스크롤 + 정렬 + 진행중강조/과거삭제) -->
+          <div class="col-span-12 xl:col-span-6 flex flex-col">
+            <div class="card overflow-hidden flex flex-col h-full">
+              <div class="px-4 py-3 border-b flex items-center justify-between">
+                <div>
+                  <div class="text-sm font-extrabold text-slate-800">출고 요약</div>
+                  <div class="text-[11px] text-slate-500">컨테이너 · LCL · 요약</div>
+                </div>
+                <div class="text-[11px] px-2 py-1 rounded-lg border bg-slate-50 font-extrabold text-slate-700">당일</div>
+              </div>
+
+              <div class="p-3 flex-1 min-h-0">
+                <div class="border rounded-2xl overflow-hidden">
+                  <!-- ✅ 내부 스크롤: 높이 고정 -->
+                  <div class="overflow-y-auto max-h-[420px]" id="shipScroll">
+                    <table class="w-full">
+                      <colgroup>
+                        <col style="width:19%">
+                        <col style="width:21%">
+                        <col style="width:15%">
+                        <col style="width:12%">
+                        <col style="width:18%">
+                        <col style="width:15%">
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th>인보이스</th>
+                          <th>국가</th>
+                          <th>컨테이너</th>
+                          <th>위치</th>
+                          <th>상차시간</th>
+                          <th>작업여부</th>
+                        </tr>
+                      </thead>
+
+                      <tbody id="ship_today_tbody">
+                        <tr>
+                          <td colspan="6"
+                              class="text-center text-slate-400 py-6"
+                              style="border-bottom:0 !important;">
+                            loading
+                          </td>
+                        </tr>
+                      </tbody>
+
+                    </table>
+                  </div>
+                </div>
+
+                <div class="mt-2 text-[11px] text-slate-500">
+                  * 작업자가 오늘 인보이스/상차시간/작업여부를 바로 확인
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- 하단: 스캔 목록 + 출고 검수 목록 -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+          <div class="card p-4 flex flex-col min-h-0">
+            <div class="text-xs text-slate-500 mb-2 shrink-0">스캔된 목록</div>
+            <div id="scanList" class="flex-1 min-h-0 overflow-auto text-xs text-slate-700 space-y-1">
+              <div class="text-slate-400">아직 스캔 없음…</div>
+            </div>
+          </div>
+
+          <div class="card flex flex-col min-h-0 lg:col-span-2">
+            <div class="px-4 py-3 border-b border-slate-200 text-[11px] text-slate-500 flex justify-between shrink-0">
+              <span class="font-extrabold text-slate-700">출고 검수 목록</span>
+              <span>정렬: 번호 ↑</span>
+            </div>
+
+            <div class="flex-1 min-h-0 overflow-auto">
+              <div class="w-full overflow-x-auto">
+                <table class="min-w-[980px]">
+                  <thead>
+                    <tr>
+                      <th class="px-3 py-2 whitespace-nowrap">번호</th>
+                      <th class="px-3 py-2 whitespace-nowrap">자재번호</th>
+                      <th class="px-3 py-2 whitespace-nowrap">박스번호</th>
+                      <th class="px-3 py-2 whitespace-nowrap">자재내역</th>
+                      <th class="px-3 py-2 whitespace-nowrap text-right">SAP</th>
+                      <th class="px-3 py-2 whitespace-nowrap text-right">WMS</th>
+                      <th class="px-3 py-2 whitespace-nowrap text-right">비교</th>
+                      <th class="px-3 py-2 whitespace-nowrap">작업</th>
+                      <th class="px-3 py-2 whitespace-nowrap">바코드</th>
+                      <th class="px-3 py-2 whitespace-nowrap">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody id="scanTableBody" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /#captureArea -->
+    </section>
+  </main>
+
+  <!-- ===== 특이사항 모달 ===== -->
+  <div id="noticeModal" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-[9999]">
+    <div class="bg-white rounded-2xl p-8 w-[90%] max-w-[560px] shadow-2xl animate-fadeIn">
+      <h2 class="text-2xl font-extrabold mb-5 text-center text-red-600">⚠ 특이사항 안내</h2>
+      <div id="noticeText" class="text-lg leading-relaxed text-slate-800 whitespace-pre-line text-center"></div>
+      <button id="noticeCloseBtn"
+        class="mt-8 w-full py-3 text-lg bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold">
+        확인했습니다
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== 미등록 바코드 확인 모달 ===== -->
+  <div id="unregModal" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-[10000]">
+    <div class="bg-white rounded-2xl p-8 w-[92%] max-w-[620px] shadow-2xl animate-fadeIn">
+      <h2 class="text-2xl font-extrabold mb-4 text-center text-red-600">❌ 미등록 바코드 확인</h2>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <div class="text-sm text-slate-500 mb-2">스캔된 바코드</div>
+        <div id="unregCode" class="text-xl font-black tracking-wide text-slate-900 break-all">-</div>
+
+        <div class="mt-3 text-sm text-slate-600 leading-relaxed">
+          이 바코드는 출고 목록에서 찾을 수 없습니다.<br/>
+          내용을 확인한 후 체크박스를 선택하고 확인을 눌러야 다음 스캔이 가능합니다.
+        </div>
+      </div>
+
+      <label class="mt-5 flex items-center gap-3 text-base font-semibold text-slate-800 select-none">
+        <input id="unregCheck" type="checkbox" class="w-5 h-5 accent-sky-600" />
+        미등록 바코드를 확인했습니다.
+      </label>
+
+      <button id="unregConfirmBtn" disabled
+        class="mt-6 w-full py-3 text-lg rounded-xl font-extrabold
+               bg-slate-300 text-slate-600 cursor-not-allowed
+               disabled:opacity-100">
+        확인 후 계속 진행
+      </button>
+    </div>
+  </div>
+
+  <!-- ✅ scan.js 연결 -->
+  <script src="scan.js"></script>
+
+  <!-- ✅ 상단바 시계 + 풀스크린 -->
+  <script>
+    (function(){
+      const clockEl = document.getElementById("boardClock");
+      const btnFs   = document.getElementById("btnFullscreen");
+
+      function kstNow(){
+        return new Intl.DateTimeFormat("ko-KR", {
+          timeZone: "Asia/Seoul",
+          hour: "2-digit", minute: "2-digit", second: "2-digit",
+          hour12: false
+        }).format(new Date());
+      }
+
+      function tick(){
+        if(clockEl) clockEl.textContent = kstNow();
+      }
+      tick();
+      setInterval(tick, 1000);
+
+      if(btnFs){
+        btnFs.addEventListener("click", ()=>{
+          if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+          else document.exitFullscreen?.();
+        });
+      }
+    })();
+  </script>
+
+  <!-- ✅ 출고요약: 정렬 + 진행중 강조 + 과거 삭제 -->
+  <script>
+    // "07시", "07시30분", "15시" -> 분 단위(분)
+    function parseLoadTime(text){
+      if(!text) return null;
+      const t = String(text).replace(/\s+/g, "").trim();
+
+      // 예: 07시, 7시, 07시30분, 7시30분
+      const m = t.match(/^(\d{1,2})시(?:(\d{1,2})분)?$/);
+      if(!m) return null;
+
+      const hh = parseInt(m[1], 10);
+      const mm = m[2] ? parseInt(m[2], 10) : 0;
+      if(Number.isNaN(hh) || Number.isNaN(mm)) return null;
+
+      return hh * 60 + mm;
+    }
+
+    function getKSTMinutes(){
+      // KST 시간의 시/분만 안전하게 추출
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Seoul",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).formatToParts(new Date());
+
+      const hh = parseInt(parts.find(p=>p.type==="hour")?.value || "0", 10);
+      const mm = parseInt(parts.find(p=>p.type==="minute")?.value || "0", 10);
+      return hh * 60 + mm;
+    }
+
+    function sortShipTable(){
+      const tbody = document.getElementById("ship_today_tbody");
+      if(!tbody) return;
+
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+
+      // 로딩/빈 안내행(=td 1개 + colspan)은 정렬에서 제외
+      const dataRows = rows.filter(r => r.children?.length >= 6);
+
+      dataRows.sort((a,b)=>{
+        const ta = parseLoadTime(a.children[4]?.innerText);
+        const tb = parseLoadTime(b.children[4]?.innerText);
+        return (ta ?? 999999) - (tb ?? 999999);
+      });
+
+      dataRows.forEach(r => tbody.appendChild(r));
+    }
+
+    function applyShipNowHighlightAndTrim(){
+      const tbody = document.getElementById("ship_today_tbody");
+      if(!tbody) return;
+
+      const nowMin = getKSTMinutes();
+
+      // 데이터 행만
+      const rows = Array.from(tbody.querySelectorAll("tr"))
+        .filter(r => r.children?.length >= 6);
+
+      if(rows.length === 0) return;
+
+      // 정렬 보장
+      sortShipTable();
+
+      // 정렬 후 다시 rows 갱신
+      const sortedRows = Array.from(tbody.querySelectorAll("tr"))
+        .filter(r => r.children?.length >= 6);
+
+      // 각 row의 시간(분)
+      const times = sortedRows.map(r => parseLoadTime(r.children[4]?.innerText));
+
+      // 현재 진행중 슬롯 = "now 이하인 마지막 시간"
+      let currentIdx = -1;
+      for(let i=0;i<times.length;i++){
+        const t = times[i];
+        if(t == null) continue;
+        if(t <= nowMin) currentIdx = i;
+        else break;
+      }
+
+      // 모든 강조 제거
+      sortedRows.forEach(r => r.classList.remove("ship-current"));
+
+      if(currentIdx >= 0){
+        // ✅ 진행중 강조
+        sortedRows[currentIdx].classList.add("ship-current");
+
+        // ✅ 진행중보다 과거(현재시간 이전) 삭제
+        // 요구사항: "현재시간 이전시간은 삭제"
+        // => currentIdx 이전 행 제거
+        for(let i=0;i<currentIdx;i++){
+          sortedRows[i].remove();
+        }
+      } else {
+        // 아직 첫 시간 전이면 삭제 없음, 강조 없음(원하면 첫 행 강조로 바꿀 수 있음)
+      }
+    }
+
+    // tbody가 갱신될 때(데이터 로딩 후) 자동 적용
+    (function(){
+      const tbody = document.getElementById("ship_today_tbody");
+      if(!tbody) return;
+
+      // 최초 1회
+      setTimeout(()=>{ applyShipNowHighlightAndTrim(); }, 300);
+
+      // 데이터가 들어오면 즉시 반영
+      const obs = new MutationObserver(()=>{
+        applyShipNowHighlightAndTrim();
+      });
+      obs.observe(tbody, { childList:true, subtree:false });
+
+      // 시간이 지나도 자동 갱신 (1분마다)
+      setInterval(()=>{ applyShipNowHighlightAndTrim(); }, 60 * 1000);
+    })();
+  </script>
+
+  <!-- ✅ 저장(캡처) -->
+  <script>
+    document.getElementById("btnCapture").addEventListener("click", async () => {
+      try {
+        const target = document.getElementById("captureArea");
+        if (!target) {
+          alert("캡처 영역(#captureArea)을 찾을 수 없습니다.");
+          return;
+        }
+
+        const inv =
+          (document.getElementById("inv_no")?.textContent || "").trim() ||
+          (document.getElementById("invInput")?.value || "NO_INV").trim();
+
+        const safeInv = inv.replace(/[\\/:*?"<>|]/g, "_");
+
+        const nowCnt = document.getElementById("progress_now")?.textContent?.trim();
+        const totalCnt = document.getElementById("progress_total")?.textContent?.trim();
+        const errCnt = document.getElementById("error_count")?.textContent?.trim();
+        const dupCnt = document.getElementById("dup_count")?.textContent?.trim();
+
+        const suffixParts = [];
+        if (nowCnt && totalCnt) suffixParts.push(`${nowCnt}of${totalCnt}`);
+        if (errCnt) suffixParts.push(`ERR${errCnt}`);
+        if (dupCnt) suffixParts.push(`DUP${dupCnt}`);
+        const suffix = suffixParts.length ? "_" + suffixParts.join("_") : "";
+
+        const canvas = await html2canvas(target, {
+          scale: 2,
+          backgroundColor: "#eef1f5",
+          useCORS: true,
+          scrollX: 0,
+          scrollY: -window.scrollY
+        });
+
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `${safeInv}${suffix}.png`;
+        a.click();
+      } catch (e) {
+        console.error(e);
+        alert("저장 실패: " + (e?.message || e));
+      }
+    });
+  </script>
+
+</body>
+</html>
