@@ -74,7 +74,7 @@
               </a>
 
               <div class="mt-2 space-y-1">
-                ${navItem("scan.html", "상차 스캔", "RUN", "sky")}
+                ${navItem("scan.html", "상차 스캔", "SCAN", "sky")}
                 ${navItem("IN.html", "입고검수", "OPEN", "emerald")}
                 ${navItem("OUT.html", "출고검수", "OPEN", "emerald")}
                 ${navItem("index_shipping.html", "출고정보", "VIEW", "plain")}
