@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>출고검수 스캔 (Mobile)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    body { background:#eef1f5; }
+
+    @keyframes fadeIn {
+      from { opacity:0; transform:translateY(20px) scale(0.95); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+
+    body { --nkgLeft: 0px; }
+    body.nkg-sidebar-on  { --nkgLeft: 300px; }
+    body.nkg-sidebar-off { --nkgLeft: 0px; }
+
+    .boardbar{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+    .card{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+
+    table{ border-collapse:collapse; width:100%; }
+    th,td{ border-bottom:1px solid #e5e7eb; padding:10px 10px; font-size:12px; }
+    th{ position:sticky; top:0; z-index:5; background:#f8fafc; color:#64748b; text-align:left; }
+
+    /* ✅ 상단 컨트롤(작게) */
+    .ctlInput{
+      border-radius: 18px;
+      font-weight: 900;
+      letter-spacing: .10em;
+    }
+    .ctlBtn{
+      border-radius: 16px;
+      font-weight: 900;
+      box-shadow: 0 6px 14px rgba(0,0,0,.10);
+      transform: translateZ(0);
+    }
+
+    /* ✅ 요약(4x2) */
+    .sumGrid{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .sumCell{
+      background:#fff;
+      border:1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 8px 8px;
+    }
+    .sumLbl{
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: .02em;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 2px;
+    }
+    .sumVal{
+      font-weight: 900;
+      font-size: 12px;
+      line-height: 1.15;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ✅ 바코드 */
+    .barcodeInput{
+      border-radius: 18px;
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    /* ✅ 스캔목록: 최근 8개 이상 스크롤 */
+    .scanListBox{
+      max-height: 220px;
+      overflow: auto;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-100">
+  <script src="nav.js"></script>
+
+  <!-- ✅ 상단 고정 바 -->
+  <div class="fixed top-0 right-0 z-[60]" style="left: var(--nkgLeft);">
+    <div class="max-w-[1100px] mx-auto px-3 pt-3">
+      <div class="boardbar px-3 py-2">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="text-[10px] font-extrabold text-slate-500 tracking-widest">OUT · MOBILE</div>
+            <div class="text-[12px] font-extrabold text-slate-900 truncate">출고검수 (OUT)</div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="btnSidebar"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-50">
+              MENU
+            </button>
+
+            <div class="text-right">
+              <div id="boardClock" class="text-[16px] font-extrabold tabular-nums text-slate-900">--:--:--</div>
+            </div>
+
+            <button id="btnFullscreen"
+              class="hidden md:inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] font-extrabold text-slate-800 hover:bg-slate-100">
+              FULLSCREEN
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="h-[74px]"></div>
+
+  <main class="max-w-[1100px] mx-auto px-3 pb-10">
+    <section class="card p-3 space-y-3">
+
+      <!-- ✅ 상단: INV + 조회/특이사항/저장 -->
+      <div class="space-y-2">
+        <div class="grid grid-cols-12 gap-2">
+          <div class="col-span-5">
+            <input id="invInput"
+              class="ctlInput w-full px-3 py-3 text-[16px] border-2 border-slate-700
+                     focus:ring-2 focus:ring-sky-500 focus:border-sky-700
+                     text-center bg-slate-50"
+              placeholder="INV NO" />
+          </div>
+
+          <div class="col-span-7 grid grid-cols-3 gap-2">
+            <button id="btnLoadInv"
+              class="ctlBtn w-full py-3 text-[13px] bg-sky-600 hover:bg-sky-700 text-white active:scale-95">
+              조회
+            </button>
+            <button id="btnNoticeOpen"
+              class="ctlBtn w-full py-3 text-[13px] bg-orange-500 hover:bg-orange-600 text-white active:scale-95">
+              특이사항
+            </button>
+            <button id="btnCapture"
+              class="ctlBtn w-full py-3 text-[13px] bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95">
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ 캡처 영역 -->
+      <div id="captureArea" class="space-y-3">
+
+        <!-- ✅ 요약 4x2 -->
+        <div class="rounded-2xl border bg-slate-50 p-3">
+          <div class="sumGrid">
+
+            <div class="sumCell">
+              <div class="sumLbl">인보이스</div>
+              <div id="inv_no" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">국가</div>
+              <div id="country" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">상차 위치</div>
+              <div id="load_loc" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">상차 시간</div>
+              <div id="load_time" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">컨테이너</div>
+              <div id="container" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">CBM</div>
+              <div id="cbm" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">출고수량(Box)</div>
+              <div id="qty" class="sumVal">-</div>
+            </div>
+
+            <div class="sumCell">
+              <div class="sumLbl">상태</div>
+              <div id="status" class="sumVal">-</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ---------------------- -->
+        <!-- ✅ 바코드 스캔 -->
+        <div class="rounded-2xl border bg-white p-3">
+          <div class="flex items-center justify-between">
+            <div class="text-[12px] font-extrabold text-slate-800">바코드 스캔</div>
+            <button type="button" id="btnBarcodeFocus"
+              class="rounded-xl border px-3 py-2 text-[11px] font-extrabold text-slate-700 hover:bg-slate-50">
+              포커스
+            </button>
+          </div>
+
+          <input id="barcodeInput"
+            class="barcodeInput mt-2 w-full px-4 py-3 text-[16px]
+                   border-2 border-slate-300 bg-slate-50
+                   focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+            placeholder="바코드를 스캔하세요" autofocus />
+        </div>
+
+        <!-- ✅ 스캔목록(최근 8개+ 스크롤) -->
+        <div class="card p-3">
+          <div class="text-[11px] text-slate-500 mb-2 font-extrabold">스캔목록</div>
+          <div id="scanList" class="scanListBox text-xs text-slate-700 space-y-1">
+            <div class="text-slate-400">아직 스캔 없음…</div>
+          </div>
+          <div class="mt-2 text-[10px] text-slate-400">* 최근 8개 이상은 스크롤로 확인</div>
+        </div>
+
+        <!-- ✅ 출고검수 목록 -->
+        <div class="card flex flex-col min-h-[320px]">
+          <div class="px-3 py-2 border-b border-slate-200 text-[11px] text-slate-500 flex justify-between shrink-0">
+            <span class="font-extrabold text-slate-700">출고검수 목록</span>
+            <span>정렬: 번호 ↑</span>
+          </div>
+
+          <div class="flex-1 min-h-0 overflow-auto">
+            <div class="w-full overflow-x-auto">
+              <table class="min-w-[980px]">
+                <thead>
+                  <tr>
+                    <th class="px-3 py-2 whitespace-nowrap">번호</th>
+                    <th class="px-3 py-2 whitespace-nowrap">자재번호</th>
+                    <th class="px-3 py-2 whitespace-nowrap">박스번호</th>
+                    <th class="px-3 py-2 whitespace-nowrap">자재내역</th>
+                    <th class="px-3 py-2 whitespace-nowrap text-right">SAP</th>
+                    <th class="px-3 py-2 whitespace-nowrap text-right">WMS</th>
+                    <th class="px-3 py-2 whitespace-nowrap text-right">비교</th>
+                    <th class="px-3 py-2 whitespace-nowrap">작업</th>
+                    <th class="px-3 py-2 whitespace-nowrap">바코드</th>
+                    <th class="px-3 py-2 whitespace-nowrap">상태</th>
+                  </tr>
+                </thead>
+                <tbody id="scanTableBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /#captureArea -->
+
+    </section>
+  </main>
+
+  <!-- ===== 특이사항 모달 ===== -->
+  <div id="noticeModal" class="fixed inset-0 bg-black/60 hidden justify-center items-center z-[9999]">
+    <div class="bg-white rounded-2xl p-6 w-[92%] max-w-[560px] shadow-2xl animate-fadeIn">
+      <h2 class="text-xl font-extrabold mb-4 text-center text-red-600">⚠ 특이사항 안내</h2>
+      <div id="noticeText" class="text-base leading-relaxed text-slate-800 whitespace-pre-line text-center"></div>
+      <button id="noticeCloseBtn"
+        class="mt-6 w-full py-3 text-base bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold">
+        확인했습니다
+      </button>
+    </div>
+  </div>
+
+  <!-- ✅ scan.js -->
+  <script src="scan.js"></script>
+
+  <!-- ✅ 상단바 시계 + 포커스 + 모달 -->
+  <script>
+    (function(){
+      const clockEl = document.getElementById("boardClock");
+      const btnFs   = document.getElementById("btnFullscreen");
+
+      function kstNow(){
+        return new Intl.DateTimeFormat("ko-KR", {
+          timeZone: "Asia/Seoul",
+          hour: "2-digit", minute: "2-digit", second: "2-digit",
+          hour12: false
+        }).format(new Date());
+      }
+      function tick(){ if(clockEl) clockEl.textContent = kstNow(); }
+      tick(); setInterval(tick, 1000);
+
+      if(btnFs){
+        btnFs.addEventListener("click", ()=>{
+          if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+          else document.exitFullscreen?.();
+        });
+      }
+
+      // 바코드 포커스
+      const btnFcs  = document.getElementById("btnBarcodeFocus");
+      const bcInput = document.getElementById("barcodeInput");
+      if(btnFcs && bcInput) btnFcs.addEventListener("click", ()=> bcInput.focus());
+
+      // 특이사항 모달
+      const modal = document.getElementById("noticeModal");
+      const open  = document.getElementById("btnNoticeOpen");
+      const close = document.getElementById("noticeCloseBtn");
+
+      if(open && modal){
+        open.addEventListener("click", ()=>{
+          modal.classList.remove("hidden");
+          modal.classList.add("flex");
+        });
+      }
+      if(close && modal){
+        close.addEventListener("click", ()=>{
+          modal.classList.add("hidden");
+          modal.classList.remove("flex");
+        });
+      }
+      if(modal){
+        modal.addEventListener("click", (e)=>{
+          if(e.target === modal){
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+          }
+        });
+      }
+    })();
+  </script>
+
+  <!-- ✅ 저장(캡처) -->
+  <script>
+    document.getElementById("btnCapture")?.addEventListener("click", async () => {
+      try {
+        const target = document.getElementById("captureArea");
+        if (!target) {
+          alert("캡처 영역(#captureArea)을 찾을 수 없습니다.");
+          return;
+        }
+
+        const inv =
+          (document.getElementById("inv_no")?.textContent || "").trim() ||
+          (document.getElementById("invInput")?.value || "NO_INV").trim();
+
+        const safeInv = inv.replace(/[\\/:*?"<>|]/g, "_");
+
+        const canvas = await html2canvas(target, {
+          scale: 2,
+          backgroundColor: "#eef1f5",
+          useCORS: true,
+          scrollX: 0,
+          scrollY: -window.scrollY
+        });
+
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `${safeInv}_OUT.png`;
+        a.click();
+      } catch (e) {
+        console.error(e);
+        alert("저장 실패: " + (e?.message || e));
+      }
+    });
+  </script>
+
+</body>
+</html>
